@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { filterBtwMessages, shortModelName, summarizeLiveText } from "./index.ts";
+import { filterBtwMessages, registerBtw, shortModelName, summarizeLiveText } from "./index.ts";
 
 describe("BTW display helpers", () => {
 	test("prefers model display name and falls back to id", () => {
@@ -24,5 +24,31 @@ describe("BTW display helpers", () => {
 			{ role: "custom", customType: "other", content: "keep" },
 		]);
 		expect(messages).toHaveLength(3);
+	});
+
+	test("does not defer an empty card flush after agent_end", async () => {
+		const handlers = new Map<string, (...args: any[]) => unknown>();
+		const pi = {
+			on(event: string, handler: (...args: any[]) => unknown) {
+				handlers.set(event, handler);
+			},
+			registerCommand() {},
+			registerMessageRenderer() {},
+		} as any;
+		registerBtw(pi);
+
+		let idleChecks = 0;
+		handlers.get("agent_end")?.(
+			{},
+			{
+				isIdle() {
+					idleChecks++;
+					throw new Error("stale extension context");
+				},
+			},
+		);
+		await Bun.sleep(10);
+
+		expect(idleChecks).toBe(0);
 	});
 });

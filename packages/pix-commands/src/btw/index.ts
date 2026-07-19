@@ -48,7 +48,11 @@ export function registerBtw(pi: ExtensionAPI): void {
 	const jobs = new Map<number, BtwJob>();
 	let nextId = 1;
 	let latestUi: ExtensionCommandContext["ui"] | undefined;
+	let latestContext: Pick<ExtensionCommandContext, "isIdle"> | undefined;
+	let active = true;
 	let refreshTimer: ReturnType<typeof setInterval> | undefined;
+	let publishTimer: ReturnType<typeof setTimeout> | undefined;
+	const pendingCards: BtwMessageDetails[] = [];
 
 	const renderJobs = (theme: Theme): string[] => {
 		const running = [...jobs.values()].filter((job) => job.status === "running");
@@ -66,7 +70,7 @@ export function registerBtw(pi: ExtensionAPI): void {
 	};
 
 	const updateUi = () => {
-		if (!latestUi) return;
+		if (!active || !latestUi) return;
 		const running = [...jobs.values()].filter((job) => job.status === "running");
 		if (running.length === 0) {
 			latestUi.setStatus(STATUS_KEY, undefined);
@@ -93,15 +97,43 @@ export function registerBtw(pi: ExtensionAPI): void {
 		refreshTimer ??= setInterval(updateUi, 100);
 	};
 
-	const publish = async (job: BtwJob, details: BtwMessageDetails, ctx: ExtensionCommandContext) => {
+	const flushPendingCards = () => {
+		// Child BTW sessions load this extension too, so their agent_end event can
+		// reach here with no cards. Do not touch a context that may be invalidated
+		// immediately afterward when the completed child session is disposed.
+		if (!active || pendingCards.length === 0 || !latestContext?.isIdle()) return;
+		for (const details of pendingCards.splice(0)) {
+			pi.sendMessage<BtwMessageDetails>({
+				customType: "pix-btw-answer",
+				content: details.error
+					? `BTW question failed: ${details.error}`
+					: `BTW answer to “${details.question}”:\n\n${details.answer}`,
+				display: true,
+				details,
+			});
+		}
+	};
+
+	const scheduleCardFlush = () => {
+		if (!active || pendingCards.length === 0 || publishTimer) return;
+		// agent_end handlers run before Pi clears its streaming flag. Flush on the
+		// next macrotask, when sendMessage appends and renders synchronously instead
+		// of entering a queue that only becomes visible on another user turn.
+		publishTimer = setTimeout(() => {
+			publishTimer = undefined;
+			flushPendingCards();
+		}, 0);
+	};
+
+	const publish = (job: BtwJob, details: BtwMessageDetails, ctx: ExtensionCommandContext) => {
 		job.session?.dispose();
 		job.session = undefined;
+		// The side session may finish while the main extension runtime is being
+		// replaced. Never touch its captured pi/ctx/UI after shutdown begins.
+		if (!active) return;
 		updateUi();
+		pendingCards.push(details);
 
-		// Sending a custom message while the main agent streams would enqueue it
-		// as a steer and leak the side answer into the in-flight task. Surface the
-		// result immediately as a UI notification, then wait to append the durable
-		// rendered transcript card until the main agent is idle.
 		if (!ctx.isIdle()) {
 			ctx.ui.notify(
 				details.error
@@ -109,17 +141,10 @@ export function registerBtw(pi: ExtensionAPI): void {
 					: `BTW #${job.id} complete\n\n${details.answer}`,
 				details.error ? "error" : "info",
 			);
-			await ctx.waitForIdle();
+			return;
 		}
 
-		pi.sendMessage<BtwMessageDetails>({
-			customType: "pix-btw-answer",
-			content: details.error
-				? `BTW question failed: ${details.error}`
-				: `BTW answer to “${details.question}”:\n\n${details.answer}`,
-			display: true,
-			details,
-		});
+		flushPendingCards();
 	};
 
 	pi.on("context", (event) => ({ messages: filterBtwMessages(event.messages) }));
@@ -129,6 +154,7 @@ export function registerBtw(pi: ExtensionAPI): void {
 		handler: async (rawArgs, ctx) => {
 			const question = rawArgs.trim();
 			latestUi = ctx.ui;
+			latestContext = ctx;
 			if (!question) {
 				ctx.ui.notify("Usage: /btw <question>", "warning");
 				return;
@@ -179,7 +205,7 @@ export function registerBtw(pi: ExtensionAPI): void {
 					job.status = "completed";
 					job.text = text;
 					job.session = session;
-					void publish(
+					publish(
 						job,
 						{
 							question,
@@ -190,12 +216,12 @@ export function registerBtw(pi: ExtensionAPI): void {
 							toolUses: job.toolUses,
 						},
 						ctx,
-					).catch(() => {});
+					);
 				})
 				.catch((error) => {
 					job.status = "error";
 					job.error = error instanceof Error ? error.message : String(error);
-					void publish(
+					publish(
 						job,
 						{
 							question,
@@ -207,19 +233,33 @@ export function registerBtw(pi: ExtensionAPI): void {
 							error: job.error,
 						},
 						ctx,
-					).catch(() => {});
+					);
 				});
 		},
 	});
 
+	pi.on("agent_end", (_event, ctx) => {
+		if (!active) return;
+		latestContext = ctx;
+		scheduleCardFlush();
+	});
+
 	pi.on("session_start", (_event, ctx) => {
+		if (!active) return;
 		latestUi = ctx.ui;
+		latestContext = ctx;
 		updateUi();
 	});
 
 	pi.on("session_shutdown", () => {
+		// Set this before clearing timers: already-queued callbacks and late BTW
+		// completions must become no-ops before Pi invalidates this runtime.
+		active = false;
 		if (refreshTimer) clearInterval(refreshTimer);
+		if (publishTimer) clearTimeout(publishTimer);
 		refreshTimer = undefined;
+		publishTimer = undefined;
+		latestContext = undefined;
 		latestUi?.setStatus(STATUS_KEY, undefined);
 		latestUi?.setWidget(WIDGET_KEY, undefined);
 		for (const job of jobs.values()) {
@@ -230,5 +270,6 @@ export function registerBtw(pi: ExtensionAPI): void {
 			job.session?.dispose();
 		}
 		jobs.clear();
+		pendingCards.length = 0;
 	});
 }
