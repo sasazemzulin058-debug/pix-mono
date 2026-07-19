@@ -106,7 +106,7 @@ Delivered after the agent's current tool execution. If the session isn't ready y
 
 | Type | Tools |
 |---|---|
-| `general-purpose` | all (read/bash/edit/write/grep/find/ls) |
+| `general` | all (read/bash/edit/write/grep/find/ls) |
 | `Explore` | read/bash/grep/find/ls (read-only) |
 | `Plan` | read/bash/grep/find/ls (read-only) |
 

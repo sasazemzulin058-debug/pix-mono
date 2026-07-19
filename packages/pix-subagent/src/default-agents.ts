@@ -10,9 +10,9 @@ const READ_ONLY_TOOLS = ["read", "bash", "grep", "find", "ls"];
 
 export const DEFAULT_AGENTS: Map<string, AgentConfig> = new Map([
 	[
-		"general-purpose",
+		"general",
 		{
-			name: "general-purpose",
+			name: "general",
 			displayName: "Agent",
 			description:
 				"General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you.",

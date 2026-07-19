@@ -120,7 +120,7 @@ cheaper/smaller model.
 
 **Type and model are orthogonal — set both, every time.** `subagent_type` (the
 agent type) picks the tool allowlist and persona: `Explore` for read-only search,
-`Plan` for read-only architecture, `general-purpose` for full-toolset work. It
+`Plan` for read-only architecture, `general` for full-toolset work. It
 does **not** pick the model. The model is always yours to choose per call via
 `model:`. A read-only `Explore` worker is not automatically cheap — you make it
 cheap by passing a cheap-tier model.
@@ -336,7 +336,7 @@ subagent's "done" is a claim, not a fact.
 
 ### 5. Type/model coupling
 
-The agent *type* (Explore, Plan, general-purpose) implies a *model* — usually
+The agent *type* (Explore, Plan, general) implies a *model* — usually
 baked into the type's default config. A caller's explicit `model:` gets
 silently discarded because the type's default wins. The parent LLM was told
 "pick a cheap model per call" but the code says "no you can't." The

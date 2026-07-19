@@ -121,7 +121,7 @@ describe("AgentManager", () => {
 		let completed = 0;
 		manager = new AgentManager(() => completed++);
 
-		const id = manager.spawn(pi, ctx, "general-purpose", "task", {
+		const id = manager.spawn(pi, ctx, "general", "task", {
 			description: "foreground task",
 		});
 
@@ -137,11 +137,11 @@ describe("AgentManager", () => {
 		const calls = installFakeRunAgent();
 		manager = new AgentManager(undefined, 1);
 
-		const id1 = manager.spawn(pi, ctx, "general-purpose", "task 1", {
+		const id1 = manager.spawn(pi, ctx, "general", "task 1", {
 			description: "first",
 			isBackground: true,
 		});
-		const id2 = manager.spawn(pi, ctx, "general-purpose", "task 2", {
+		const id2 = manager.spawn(pi, ctx, "general", "task 2", {
 			description: "second",
 			isBackground: true,
 		});
@@ -167,11 +167,11 @@ describe("AgentManager", () => {
 		const calls = installFakeRunAgent();
 		manager = new AgentManager(undefined, 1);
 
-		manager.spawn(pi, ctx, "general-purpose", "task 1", {
+		manager.spawn(pi, ctx, "general", "task 1", {
 			description: "first",
 			isBackground: true,
 		});
-		const queuedId = manager.spawn(pi, ctx, "general-purpose", "task 2", {
+		const queuedId = manager.spawn(pi, ctx, "general", "task 2", {
 			description: "second",
 			isBackground: true,
 		});
@@ -192,7 +192,7 @@ describe("AgentManager", () => {
 		const calls = installFakeRunAgent();
 		manager = new AgentManager(undefined, 4);
 
-		const id = manager.spawn(pi, ctx, "general-purpose", "task", {
+		const id = manager.spawn(pi, ctx, "general", "task", {
 			description: "run",
 			isBackground: true,
 		});
@@ -211,7 +211,7 @@ describe("AgentManager", () => {
 		installFakeRunAgent();
 		manager = new AgentManager(undefined, 4);
 		expect(() =>
-			manager.spawn(pi, ctx, "general-purpose", "task", {
+			manager.spawn(pi, ctx, "general", "task", {
 				description: "test",
 				cwd: "relative/path",
 			}),
@@ -222,7 +222,7 @@ describe("AgentManager", () => {
 		installFakeRunAgent();
 		manager = new AgentManager(undefined, 4);
 		expect(() =>
-			manager.spawn(pi, ctx, "general-purpose", "task", {
+			manager.spawn(pi, ctx, "general", "task", {
 				description: "test",
 				cwd: "/nonexistent-dir-xyz",
 			}),
@@ -233,7 +233,7 @@ describe("AgentManager", () => {
 		installFakeRunAgent();
 		manager = new AgentManager(undefined, 4);
 		// Should not throw
-		const id = manager.spawn(pi, ctx, "general-purpose", "task", {
+		const id = manager.spawn(pi, ctx, "general", "task", {
 			description: "test",
 			cwd: undefined,
 		});
@@ -245,11 +245,11 @@ describe("AgentManager", () => {
 		const calls = installFakeRunAgent();
 		manager = new AgentManager(undefined, 1);
 
-		manager.spawn(pi, ctx, "general-purpose", "task 1", {
+		manager.spawn(pi, ctx, "general", "task 1", {
 			description: "first",
 			isBackground: true,
 		});
-		manager.spawn(pi, ctx, "general-purpose", "task 2", {
+		manager.spawn(pi, ctx, "general", "task 2", {
 			description: "second",
 			isBackground: true,
 		});
@@ -271,11 +271,11 @@ describe("AgentManager", () => {
 		const calls = installFakeRunAgent();
 		manager = new AgentManager(undefined, 4);
 
-		const idA = manager.spawn(pi, ctx, "general-purpose", "task 1", {
+		const idA = manager.spawn(pi, ctx, "general", "task 1", {
 			description: "first",
 			isBackground: true,
 		});
-		const idB = manager.spawn(pi, ctx, "general-purpose", "task 2", {
+		const idB = manager.spawn(pi, ctx, "general", "task 2", {
 			description: "second",
 			isBackground: true,
 		});
@@ -306,7 +306,7 @@ describe("AgentManager", () => {
 		const calls = installFakeRunAgent();
 		manager = new AgentManager(onComplete, 4);
 
-		const id = manager.spawn(pi, ctx, "general-purpose", "task", {
+		const id = manager.spawn(pi, ctx, "general", "task", {
 			description: "will fail",
 			isBackground: true,
 		});
@@ -333,7 +333,7 @@ describe("AgentManager", () => {
 		const calls = installFakeRunAgent();
 		manager = new AgentManager(undefined, 4);
 
-		const id = manager.spawn(pi, ctx, "general-purpose", "task", {
+		const id = manager.spawn(pi, ctx, "general", "task", {
 			description: "test",
 			isBackground: true,
 		});
@@ -355,7 +355,7 @@ describe("AgentManager", () => {
 		const resumeCalls = installFakeResumeAgent();
 		manager = new AgentManager(undefined, 4);
 
-		const id = manager.spawn(pi, ctx, "general-purpose", "task", {
+		const id = manager.spawn(pi, ctx, "general", "task", {
 			description: "test",
 			isBackground: true,
 		});
@@ -378,7 +378,7 @@ describe("AgentManager", () => {
 		const resumeCalls = installFakeResumeAgent();
 		manager = new AgentManager(undefined, 4);
 
-		const id = manager.spawn(pi, ctx, "general-purpose", "task", {
+		const id = manager.spawn(pi, ctx, "general", "task", {
 			description: "test",
 			isBackground: true,
 		});
@@ -405,7 +405,7 @@ describe("AgentManager", () => {
 	test("hasRunning() returns true when an agent is running", () => {
 		installFakeRunAgent();
 		manager = new AgentManager(undefined, 4);
-		manager.spawn(pi, ctx, "general-purpose", "task", {
+		manager.spawn(pi, ctx, "general", "task", {
 			description: "test",
 			isBackground: true,
 		});
@@ -415,11 +415,11 @@ describe("AgentManager", () => {
 	test("hasRunning() returns true when an agent is queued", () => {
 		installFakeRunAgent();
 		manager = new AgentManager(undefined, 1);
-		manager.spawn(pi, ctx, "general-purpose", "task 1", {
+		manager.spawn(pi, ctx, "general", "task 1", {
 			description: "first",
 			isBackground: true,
 		});
-		manager.spawn(pi, ctx, "general-purpose", "task 2", {
+		manager.spawn(pi, ctx, "general", "task 2", {
 			description: "second",
 			isBackground: true,
 		});
@@ -429,7 +429,7 @@ describe("AgentManager", () => {
 	test("hasRunning() returns false after all agents complete", async () => {
 		const calls = installFakeRunAgent();
 		manager = new AgentManager(undefined, 4);
-		manager.spawn(pi, ctx, "general-purpose", "task", {
+		manager.spawn(pi, ctx, "general", "task", {
 			description: "test",
 			isBackground: true,
 		});
@@ -444,11 +444,11 @@ describe("AgentManager", () => {
 		const calls = installFakeRunAgent();
 		manager = new AgentManager(undefined, 4);
 
-		manager.spawn(pi, ctx, "general-purpose", "task 1", {
+		manager.spawn(pi, ctx, "general", "task 1", {
 			description: "first",
 			isBackground: true,
 		});
-		manager.spawn(pi, ctx, "general-purpose", "task 2", {
+		manager.spawn(pi, ctx, "general", "task 2", {
 			description: "second",
 			isBackground: true,
 		});
@@ -470,11 +470,11 @@ describe("AgentManager", () => {
 		const calls = installFakeRunAgent();
 		manager = new AgentManager(undefined, 1);
 
-		manager.spawn(pi, ctx, "general-purpose", "task 1", {
+		manager.spawn(pi, ctx, "general", "task 1", {
 			description: "first",
 			isBackground: true,
 		});
-		manager.spawn(pi, ctx, "general-purpose", "task 2", {
+		manager.spawn(pi, ctx, "general", "task 2", {
 			description: "second",
 			isBackground: true,
 		});
@@ -495,11 +495,11 @@ describe("AgentManager", () => {
 		installFakeRunAgent();
 		manager = new AgentManager(undefined, 4);
 
-		const id1 = manager.spawn(pi, ctx, "general-purpose", "task 1", {
+		const id1 = manager.spawn(pi, ctx, "general", "task 1", {
 			description: "first",
 			isBackground: true,
 		});
-		const id2 = manager.spawn(pi, ctx, "general-purpose", "task 2", {
+		const id2 = manager.spawn(pi, ctx, "general", "task 2", {
 			description: "second",
 			isBackground: true,
 		});
@@ -531,7 +531,7 @@ describe("AgentManager", () => {
 		};
 		manager = new AgentManager(undefined, 4, onStart);
 
-		const id = manager.spawn(pi, ctx, "general-purpose", "task", {
+		const id = manager.spawn(pi, ctx, "general", "task", {
 			description: "test",
 			isBackground: true,
 		});
@@ -547,11 +547,11 @@ describe("AgentManager", () => {
 		};
 		manager = new AgentManager(undefined, 1, onStart);
 
-		const id1 = manager.spawn(pi, ctx, "general-purpose", "task 1", {
+		const id1 = manager.spawn(pi, ctx, "general", "task 1", {
 			description: "first",
 			isBackground: true,
 		});
-		const id2 = manager.spawn(pi, ctx, "general-purpose", "task 2", {
+		const id2 = manager.spawn(pi, ctx, "general", "task 2", {
 			description: "second",
 			isBackground: true,
 		});
@@ -576,13 +576,13 @@ describe("AgentManager", () => {
 		manager = new AgentManager(undefined, 1);
 
 		// Fill the single slot
-		manager.spawn(pi, ctx, "general-purpose", "task 1", {
+		manager.spawn(pi, ctx, "general", "task 1", {
 			description: "first",
 			isBackground: true,
 		});
 
 		// Bypass should start immediately despite limit
-		const bypassId = manager.spawn(pi, ctx, "general-purpose", "task 2", {
+		const bypassId = manager.spawn(pi, ctx, "general", "task 2", {
 			description: "bypass",
 			isBackground: true,
 			bypassQueue: true,
@@ -595,12 +595,12 @@ describe("AgentManager", () => {
 		installFakeRunAgent();
 		manager = new AgentManager(undefined, 1);
 
-		manager.spawn(pi, ctx, "general-purpose", "task 1", {
+		manager.spawn(pi, ctx, "general", "task 1", {
 			description: "first",
 			isBackground: true,
 		});
 
-		const queuedId = manager.spawn(pi, ctx, "general-purpose", "task 2", {
+		const queuedId = manager.spawn(pi, ctx, "general", "task 2", {
 			description: "normal",
 			isBackground: true,
 		});
@@ -614,11 +614,11 @@ describe("AgentManager", () => {
 		const calls = installFakeRunAgent();
 		manager = new AgentManager(undefined, 1);
 
-		manager.spawn(pi, ctx, "general-purpose", "task 1", {
+		manager.spawn(pi, ctx, "general", "task 1", {
 			description: "first",
 			isBackground: true,
 		});
-		const id2 = manager.spawn(pi, ctx, "general-purpose", "task 2", {
+		const id2 = manager.spawn(pi, ctx, "general", "task 2", {
 			description: "second",
 			isBackground: true,
 		});
@@ -677,7 +677,7 @@ describe("AgentManager", () => {
 
 		manager = new AgentManager(undefined, 4);
 
-		const id = manager.spawn(pi, ctx, "general-purpose", "task", {
+		const id = manager.spawn(pi, ctx, "general", "task", {
 			description: "test",
 			isBackground: true,
 		});
@@ -701,11 +701,11 @@ describe("AgentManager", () => {
 		installFakeRunAgent();
 		manager = new AgentManager(undefined, 1);
 
-		manager.spawn(pi, ctx, "general-purpose", "task 1", {
+		manager.spawn(pi, ctx, "general", "task 1", {
 			description: "first",
 			isBackground: true,
 		});
-		manager.spawn(pi, ctx, "general-purpose", "task 2", {
+		manager.spawn(pi, ctx, "general", "task 2", {
 			description: "second",
 			isBackground: true,
 		});
@@ -727,7 +727,7 @@ describe("AgentManager", () => {
 		const calls = installFakeRunAgent();
 		manager = new AgentManager(undefined, 4);
 
-		const id = manager.spawn(pi, ctx, "general-purpose", "task", {
+		const id = manager.spawn(pi, ctx, "general", "task", {
 			description: "test",
 			isBackground: true,
 		});
@@ -745,7 +745,7 @@ describe("AgentManager", () => {
 		manager = new AgentManager(undefined, 4);
 
 		const before = Date.now();
-		const id = manager.spawn(pi, ctx, "general-purpose", "task", {
+		const id = manager.spawn(pi, ctx, "general", "task", {
 			description: "my task",
 			isBackground: true,
 			maxTurns: 15,
@@ -754,7 +754,7 @@ describe("AgentManager", () => {
 
 		const record = manager.getRecord(id);
 		if (!record) throw new Error("expected record to exist");
-		expect(record.type).toBe("general-purpose");
+		expect(record.type).toBe("general");
 		expect(record.description).toBe("my task");
 		expect(record.status).toBe("running");
 		expect(record.toolUses).toBe(0);
@@ -777,7 +777,7 @@ describe("AgentManager", () => {
 		const calls = installFakeRunAgent();
 		manager = new AgentManager(undefined, 4);
 
-		const id = manager.spawn(pi, ctx, "general-purpose", "task", {
+		const id = manager.spawn(pi, ctx, "general", "task", {
 			description: "test",
 			isBackground: true,
 		});

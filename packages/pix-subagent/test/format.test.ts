@@ -152,7 +152,7 @@ test("formatAgentCall includes the task prompt before auto-collapse", () => {
 	const theme = { fg: (_color: string, text: string) => text, bold: (text: string) => text };
 	const rendered = formatAgentCall(
 		{
-			type: "general-purpose",
+			type: "general",
 			description: "Audit recording dead code",
 			prompt: "here",
 			background: false,
@@ -167,7 +167,7 @@ test("formatAgentCall hides the task prompt after auto-collapse", () => {
 	const theme = { fg: (_color: string, text: string) => text, bold: (text: string) => text };
 	const rendered = formatAgentCall(
 		{
-			type: "general-purpose",
+			type: "general",
 			description: "Audit recording dead code",
 			prompt: "here",
 			background: true,
@@ -185,7 +185,7 @@ test("formatAgentCompletedLine keeps the completed agent row visible", () => {
 		{
 			displayName: "Agent",
 			description: "Audit recording dead code",
-			subagentType: "general-purpose",
+			subagentType: "general",
 			toolUses: 0,
 			context: "",
 			durationMs: 250,
@@ -208,7 +208,7 @@ test("foreground terminal rows begin directly with their status mark", () => {
 		{
 			displayName: "Agent",
 			description: "Inspect renderers",
-			subagentType: "general-purpose",
+			subagentType: "general",
 			toolUses: 0,
 			context: "",
 			durationMs: 250,
@@ -226,7 +226,7 @@ test("all foreground terminal states use one identity-first row", () => {
 			{
 				displayName: "Agent",
 				description: "Inspect renderers",
-				subagentType: "general-purpose",
+				subagentType: "general",
 				toolUses: 2,
 				context: "20% ctx",
 				outputTokens: 550,
@@ -257,7 +257,7 @@ test("expanded foreground terminal result keeps summary first and bounded detail
 			details: {
 				displayName: "Agent",
 				description: "Inspect renderers",
-				subagentType: "general-purpose",
+				subagentType: "general",
 				toolUses: 0,
 				context: "",
 				durationMs: 250,

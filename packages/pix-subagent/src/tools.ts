@@ -651,13 +651,11 @@ export function createAgentTool(
 			const rawType =
 				(params.type as string | undefined) ??
 				(looseParams.subagent_type as string | undefined) ??
-				"general-purpose";
+				"general";
 			const resolvedKey =
 				getAvailableTypes().find((t) => t.toLowerCase() === rawType.toLowerCase()) ?? rawType;
-			const subagentType = getAvailableTypes().includes(resolvedKey)
-				? resolvedKey
-				: "general-purpose";
-			const fellBack = subagentType === "general-purpose" && resolvedKey !== "general-purpose";
+			const subagentType = getAvailableTypes().includes(resolvedKey) ? resolvedKey : "general";
+			const fellBack = subagentType === "general" && resolvedKey !== "general";
 
 			const displayName = getConfig(subagentType).displayName;
 			const customConfig = getAgentConfig(subagentType);
@@ -743,7 +741,7 @@ export function createAgentTool(
 				for (const w of customConfig.warnings) detailBase.tags.push(w);
 			}
 
-			if (fellBack) detailBase.tags.push("(unknown type → general-purpose)");
+			if (fellBack) detailBase.tags.push("(unknown type → general)");
 			if (thinking) detailBase.tags.push(`thinking: ${thinking}`);
 			if (isolated) detailBase.tags.push("isolated");
 

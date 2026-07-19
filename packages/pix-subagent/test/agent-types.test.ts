@@ -18,9 +18,7 @@ test("BUILTIN_TOOL_NAMES is the 7 pi built-ins", () => {
 
 test("defaults register and Explore is read-only", () => {
 	registerAgents(new Map());
-	expect(getAvailableTypes()).toEqual(
-		expect.arrayContaining(["general-purpose", "Explore", "Plan"]),
-	);
+	expect(getAvailableTypes()).toEqual(expect.arrayContaining(["general", "Explore", "Plan"]));
 	// Explore omits write/edit/bash
 	const explore = getToolNamesForType("Explore");
 	expect(explore).not.toContain("write");
@@ -37,13 +35,8 @@ test("no default agent carries a baked-in model", () => {
 	for (const [_name, config] of DEFAULT_AGENTS) {
 		expect(config.model).toBeUndefined();
 	}
-	// Sanity: built-ins are general-purpose, Explore, Plan, Mentor
-	expect([...DEFAULT_AGENTS.keys()].sort()).toEqual([
-		"Explore",
-		"Mentor",
-		"Plan",
-		"general-purpose",
-	]);
+	// Sanity: built-ins are general, Explore, Plan, Mentor
+	expect([...DEFAULT_AGENTS.keys()].sort()).toEqual(["Explore", "Mentor", "Plan", "general"]);
 });
 
 test("caller params.model always wins over agentConfig.model", () => {
