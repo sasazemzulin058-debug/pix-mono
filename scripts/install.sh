@@ -36,7 +36,8 @@ set -eu
 #                        pix-tokyo-night, not an opt-in capability).
 #   OPTIN_PIX_PACKAGES  — standalone @xynogen/pix-* extensions NOT bundled by
 #                        pix-core, each carrying a setup cost or sensitive
-#                        capability (API key, root execution, power-user UI).
+#                        capability (external MCP servers, API key, root
+#                        execution, power-user UI).
 #   OPTIN_COMMUNITY_PACKAGES — third-party packages (not part of the pix
 #                        distro) offered as optional extras.
 #                        Both opt-in lists default to NO when the installer
@@ -49,12 +50,12 @@ THEME_PACKAGE="npm:@xynogen/pix-themes"
 # Format: "<spec>|<description>"
 RECOMMENDED_PACKAGES="
 npm:pi-lens|LSP code intelligence — jump-to-definition, references, hover, and proactive diagnostics. (Recommended)
-npm:pi-mcp-adapter|MCP gateway — connect to MCP servers and call their tools from a single unified proxy. (Recommended)
 "
 
 # Opt-in Pix extensions — each carries a setup cost or sensitive capability.
 # Format: "<spec>|<why it's opt-in>"
 OPTIN_PIX_PACKAGES="
+npm:@xynogen/pix-mcp|Token-efficient MCP gateway — external servers can execute commands or access sensitive services, so configure and enable it explicitly.
 npm:@xynogen/pix-9router|9Router LLM provider + fetch/search tools — needs a 9Router API key, so only useful if you route through 9Router.
 npm:@xynogen/pix-sudo|sudo_run — root execution via a PAM password overlay; a privileged capability you opt into explicitly (blocked in non-interactive mode).
 npm:@xynogen/pix-toolbox|/toolbox — fuzzy-search picker to enable/disable tools at runtime; a power-user utility, not needed for normal use.
@@ -171,7 +172,7 @@ install_pi_pkg "$THEME_PACKAGE"
 
 # Recommended community packages — installed unless declined.
 printf '\n'
-printf '\033[0;34m›\033[0m \033[1mRecommended community packages\033[0m (enhances Pi with LSP + MCP capabilities):\n'
+printf '\033[0;34m›\033[0m \033[1mRecommended community packages\033[0m (enhances Pi with LSP capabilities):\n'
 OLD_IFS=$IFS
 IFS='
 '

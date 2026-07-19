@@ -75,6 +75,7 @@ Not bundled by `pix-core` — install each only if you want it. These are delibe
 | [`@xynogen/pix-9router`](packages/pix-9router) | 9Router LLM provider + `fetch`/`search`/`transcribe` tools — needs a 9Router API key, so only useful if you route through 9Router |
 | [`@xynogen/pix-sudo`](packages/pix-sudo) | `sudo_run` — root execution via a PAM password overlay; a privileged capability you opt into explicitly (blocked in non-interactive mode) |
 | [`@xynogen/pix-toolbox`](packages/pix-toolbox) | `/toolbox` — fuzzy-search picker to enable/disable tools at runtime; a power-user utility, not needed for normal use |
+| [`@xynogen/pix-mcp`](packages/pix-mcp) | Token-efficient MCP gateway — external servers can execute commands or access sensitive services, so configure and enable it explicitly |
 
 ### Roadmap — third-party extensions
 
@@ -83,7 +84,6 @@ Upstream Pi community extensions we currently lean on. The future-development go
 | Package | Description |
 | --- | --- |
 | [`pi-lens`](https://github.com/apmantza/pi-lens) | Real-time code feedback — LSP navigation/diagnostics, linters, formatters, type-checking, structural (ast-grep) analysis |
-| [`pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter) | MCP (Model Context Protocol) adapter — connect Pi to external MCP servers and call their tools |
 
 ## Install
 
@@ -175,6 +175,7 @@ Several packages here originated as forks or merges of community Pi packages:
 | `npm:@juicesharp/rpiv-ask-user-question` | rewritten as the `ask-user` skill in `pix-skills` |
 | [`git:github.com/tintinweb/pi-subagents`](https://github.com/tintinweb/pi-subagents) | spawn engine ported into `pix-subagent` |
 | [`git:github.com/nicobailon/pi-subagents`](https://github.com/nicobailon/pi-subagents) | work-splitting design adapted in `pix-subagent` |
+| [`git:github.com/nicobailon/pi-mcp-adapter`](https://github.com/nicobailon/pi-mcp-adapter) | v2.11.0 (`82724dc`) adopted as `@xynogen/pix-mcp`; MIT license retained, with bounded on-demand discovery and lazy startup behavior |
 
 Previous standalone repos migrated into this monorepo: `pix-optimizer`, `pix-themes`, `pix-pretty`, `pix-core`, `pix-9router`, `pix-data`.
 

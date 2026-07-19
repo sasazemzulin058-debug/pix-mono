@@ -93,6 +93,7 @@ packages/
   pix-9router/     # 9Router LLM provider + fetch/search/transcribe (needs API key)
   pix-sudo/        # sudo_run with PAM password prompt
   pix-toolbox/     # Gated tool toggle UI (/toolbox)
+  pix-mcp/         # Token-efficient MCP gateway (external servers; explicit opt-in)
 scripts/
   dev-link.sh      # Symlink packages into Pi for dev
   publish-all.ts   # Publish changed packages to npm (idempotent)

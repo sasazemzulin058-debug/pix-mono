@@ -1,0 +1,64 @@
+{
+	"name": "@xynogen/pix-mcp",
+	"version": "0.1.0",
+	"description": "Token-efficient MCP gateway for the Pix Pi distro",
+	"type": "module",
+	"main": "src/index.ts",
+	"bin": {
+		"pix-mcp": "cli.js"
+	},
+	"scripts": {
+		"test": "vitest run --config vitest.config.ts"
+	},
+	"files": [
+		"src",
+		"cli.js",
+		"README.md",
+		"OAUTH.md",
+		"LICENSE"
+	],
+	"pi": {
+		"extensions": [
+			"src/index.ts"
+		]
+	},
+	"keywords": [
+		"pi",
+		"pi-package",
+		"pi-extension",
+		"pix",
+		"mcp",
+		"model-context-protocol"
+	],
+	"author": "xynogen",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/xynogen/pix-mono.git",
+		"directory": "packages/pix-mcp"
+	},
+	"homepage": "https://github.com/xynogen/pix-mono/tree/main/packages/pix-mcp#readme",
+	"bugs": {
+		"url": "https://github.com/xynogen/pix-mono/issues"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/ext-apps": "^1.2.2",
+		"@modelcontextprotocol/sdk": "^1.25.1",
+		"@xynogen/pix-pretty": "^1.7.21",
+		"open": "^10.2.0",
+		"recheck": "^4.5.0",
+		"typebox": "^1.1.38",
+		"zod": "^3.25.0 || ^4.0.0"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	},
+	"devDependencies": {
+		"vitest": "^3.0.0"
+	}
+}
