@@ -25,5 +25,10 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      # pix-mcp uses vitest (vi.mock, vi.hoisted) which bun test doesn't support.
+      # Run it separately until migrated to bun:test.
       - name: Test
-        run: bun test
+        run: bun test --path-ignore-patterns='packages/pix-mcp/tests/**'
+
+      - name: Test (pix-mcp · vitest)
+        run: bun run --cwd packages/pix-mcp test
