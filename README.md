@@ -2,6 +2,8 @@
 
 Monorepo of Pix, a distro of [Pi Coding Agent](https://github.com/badlogic/pi-mono).
 
+> **🎨 Opinionated by design.** This distro reflects a specific terminal aesthetic and workflow. Colors, layout, information density, and visual choices are intentional — not configurable-by-default. Style PRs may be declined; capability PRs are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
 > **⚠ Expect breaking changes.** This project is under active development. Packages are regularly split, merged, renamed, or removed. The recommended upgrade path is to **uninstall then reinstall** the distro rather than incrementally updating individual packages. When in doubt, run the uninstall script first.
 
 > **🐧 Linux and macOS tested.** This project has been tested on Linux and used successfully on macOS. Some tools are designed around Linux/Unix utilities and may be less efficient on macOS. Windows is **not tested** and may not work correctly.
