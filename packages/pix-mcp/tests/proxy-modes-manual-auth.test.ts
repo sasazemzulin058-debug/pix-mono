@@ -1,24 +1,24 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const mocks = vi.hoisted(() => ({
-	completeAuthFromInput: vi.fn(),
-	startAuth: vi.fn(),
-	supportsOAuth: vi.fn(),
-	lazyConnect: vi.fn(),
-	updateServerMetadata: vi.fn(),
-	updateMetadataCache: vi.fn(),
-	getFailureAgeSeconds: vi.fn(),
-	updateStatusBar: vi.fn(),
-}));
+const mocks = {
+	completeAuthFromInput: mock(() => {}),
+	startAuth: mock(() => {}),
+	supportsOAuth: mock(() => {}),
+	lazyConnect: mock(() => {}),
+	updateServerMetadata: mock(() => {}),
+	updateMetadataCache: mock(() => {}),
+	getFailureAgeSeconds: mock(() => {}),
+	updateStatusBar: mock(() => {}),
+};
 
-vi.mock("../src/mcp-auth-flow.ts", () => ({
-	authenticate: vi.fn(),
+mock.module("../src/mcp-auth-flow.ts", () => ({
+	authenticate: mock(() => {}),
 	completeAuthFromInput: mocks.completeAuthFromInput,
 	startAuth: mocks.startAuth,
 	supportsOAuth: mocks.supportsOAuth,
 }));
 
-vi.mock("../src/init.ts", () => ({
+mock.module("../src/init.ts", () => ({
 	lazyConnect: mocks.lazyConnect,
 	updateServerMetadata: mocks.updateServerMetadata,
 	updateMetadataCache: mocks.updateMetadataCache,
@@ -35,7 +35,7 @@ function createState(overrides: Record<string, unknown> = {}) {
 				bearer: { url: "https://api.example.com/mcp", auth: "bearer" },
 			},
 		},
-		manager: { close: vi.fn(async () => {}) },
+		manager: { close: mock(async () => {}) },
 		toolMetadata: new Map(),
 		failureTracker: new Map([["demo", Date.now()]]),
 		...overrides,
@@ -44,7 +44,6 @@ function createState(overrides: Record<string, unknown> = {}) {
 
 describe("manual OAuth proxy actions", () => {
 	beforeEach(() => {
-		vi.resetModules();
 		mocks.completeAuthFromInput.mockReset().mockResolvedValue("authenticated");
 		mocks.startAuth.mockReset().mockResolvedValue({
 			authorizationUrl:

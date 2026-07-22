@@ -1,36 +1,36 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 
-const mocks = vi.hoisted(() => ({
-	initializeMcp: vi.fn(),
-	updateStatusBar: vi.fn(),
-	flushMetadataCache: vi.fn(),
-	initializeOAuth: vi.fn().mockResolvedValue(undefined),
-	shutdownOAuth: vi.fn().mockResolvedValue(undefined),
-	loadMcpConfig: vi.fn(() => ({ mcpServers: {} })),
-	loadMetadataCache: vi.fn(() => null),
-	buildProxyDescription: vi.fn(() => "MCP gateway"),
-	createDirectToolExecutor: vi.fn(() => vi.fn()),
-	getMissingConfiguredDirectToolServers: vi.fn(() => []),
-	resolveDirectTools: vi.fn(() => []),
-	showStatus: vi.fn(),
-	showTools: vi.fn(),
-	reconnectServers: vi.fn(),
-	authenticateServer: vi.fn(),
-	logoutServer: vi.fn(),
-	openMcpAuthPanel: vi.fn(),
-	openMcpPanel: vi.fn(),
-	openMcpSetup: vi.fn(),
-	executeAuthComplete: vi.fn(),
-	executeAuthStart: vi.fn(),
-	executeCall: vi.fn(),
-	executeConnect: vi.fn(),
-	executeDescribe: vi.fn(),
-	executeList: vi.fn(),
-	executeSearch: vi.fn(),
-	executeStatus: vi.fn(),
-	executeUiMessages: vi.fn(),
-	getConfigPathFromArgv: vi.fn(() => undefined),
-	normalizeDirectToolInputSchema: vi.fn((schema: unknown) =>
+const mocks = {
+	initializeMcp: mock(),
+	updateStatusBar: mock(),
+	flushMetadataCache: mock(),
+	initializeOAuth: mock().mockResolvedValue(undefined),
+	shutdownOAuth: mock().mockResolvedValue(undefined),
+	loadMcpConfig: mock(() => ({ mcpServers: {} })),
+	loadMetadataCache: mock(() => null),
+	buildProxyDescription: mock(() => "MCP gateway"),
+	createDirectToolExecutor: mock(() => mock()),
+	getMissingConfiguredDirectToolServers: mock(() => []),
+	resolveDirectTools: mock(() => []),
+	showStatus: mock(),
+	showTools: mock(),
+	reconnectServers: mock(),
+	authenticateServer: mock(),
+	logoutServer: mock(),
+	openMcpAuthPanel: mock(),
+	openMcpPanel: mock(),
+	openMcpSetup: mock(),
+	executeAuthComplete: mock(),
+	executeAuthStart: mock(),
+	executeCall: mock(),
+	executeConnect: mock(),
+	executeDescribe: mock(),
+	executeList: mock(),
+	executeSearch: mock(),
+	executeStatus: mock(),
+	executeUiMessages: mock(),
+	getConfigPathFromArgv: mock(() => undefined),
+	normalizeDirectToolInputSchema: mock((schema: unknown) =>
 		schema && typeof schema === "object" && !Array.isArray(schema)
 			? Object.fromEntries(
 					Object.entries(schema).filter(
@@ -39,36 +39,36 @@ const mocks = vi.hoisted(() => ({
 				)
 			: { type: "object", properties: {} },
 	),
-	truncateAtWord: vi.fn((text: string) => text),
-}));
+	truncateAtWord: mock((text: string) => text),
+};
 
-vi.mock("../src/init.ts", () => ({
+mock.module("../src/init.ts", () => ({
 	initializeMcp: mocks.initializeMcp,
 	updateStatusBar: mocks.updateStatusBar,
 	flushMetadataCache: mocks.flushMetadataCache,
 }));
 
-vi.mock("../src/mcp-auth-flow.ts", () => ({
+mock.module("../src/mcp-auth-flow.ts", () => ({
 	initializeOAuth: mocks.initializeOAuth,
 	shutdownOAuth: mocks.shutdownOAuth,
 }));
 
-vi.mock("../src/config.ts", () => ({
+mock.module("../src/config.ts", () => ({
 	loadMcpConfig: mocks.loadMcpConfig,
 }));
 
-vi.mock("../src/metadata-cache.ts", () => ({
+mock.module("../src/metadata-cache.ts", () => ({
 	loadMetadataCache: mocks.loadMetadataCache,
 }));
 
-vi.mock("../src/direct-tools.ts", () => ({
+mock.module("../src/direct-tools.ts", () => ({
 	buildProxyDescription: mocks.buildProxyDescription,
 	createDirectToolExecutor: mocks.createDirectToolExecutor,
 	getMissingConfiguredDirectToolServers: mocks.getMissingConfiguredDirectToolServers,
 	resolveDirectTools: mocks.resolveDirectTools,
 }));
 
-vi.mock("../src/commands.ts", () => ({
+mock.module("../src/commands.ts", () => ({
 	showStatus: mocks.showStatus,
 	showTools: mocks.showTools,
 	reconnectServers: mocks.reconnectServers,
@@ -79,7 +79,7 @@ vi.mock("../src/commands.ts", () => ({
 	openMcpSetup: mocks.openMcpSetup,
 }));
 
-vi.mock("../src/proxy-modes.ts", () => ({
+mock.module("../src/proxy-modes.ts", () => ({
 	executeAuthComplete: mocks.executeAuthComplete,
 	executeAuthStart: mocks.executeAuthStart,
 	executeCall: mocks.executeCall,
@@ -91,7 +91,7 @@ vi.mock("../src/proxy-modes.ts", () => ({
 	executeUiMessages: mocks.executeUiMessages,
 }));
 
-vi.mock("../src/utils.ts", () => ({
+mock.module("../src/utils.ts", () => ({
 	getConfigPathFromArgv: mocks.getConfigPathFromArgv,
 	normalizeDirectToolInputSchema: mocks.normalizeDirectToolInputSchema,
 	truncateAtWord: mocks.truncateAtWord,
@@ -108,7 +108,7 @@ function createDeferred<T>() {
 function createState() {
 	return {
 		manager: { getAllConnections: () => new Map() },
-		lifecycle: { gracefulShutdown: vi.fn().mockResolvedValue(undefined) },
+		lifecycle: { gracefulShutdown: mock().mockResolvedValue(undefined) },
 		toolMetadata: new Map(),
 		config: { mcpServers: {} },
 		failureTracker: new Map(),
@@ -116,7 +116,7 @@ function createState() {
 		consentManager: {},
 		uiServer: null,
 		completedUiSessions: [],
-		openBrowser: vi.fn(),
+		openBrowser: mock(),
 	} as any;
 }
 
@@ -125,13 +125,13 @@ function createPi() {
 	return {
 		handlers,
 		api: {
-			registerTool: vi.fn(),
-			registerFlag: vi.fn(),
-			registerCommand: vi.fn(),
-			on: vi.fn((event: string, handler: (...args: any[]) => unknown) => {
+			registerTool: mock(),
+			registerFlag: mock(),
+			registerCommand: mock(),
+			on: mock((event: string, handler: (...args: any[]) => unknown) => {
 				handlers.set(event, handler);
 			}),
-			getAllTools: vi.fn(() => []),
+			getAllTools: mock(() => []),
 		} as any,
 	};
 }
@@ -141,7 +141,6 @@ describe("mcpAdapter session lifecycle", () => {
 
 	beforeEach(() => {
 		delete process.env.MCP_DIRECT_TOOLS;
-		vi.resetModules();
 		for (const value of Object.values(mocks)) {
 			if (typeof value === "function" && "mockReset" in value) {
 				value.mockReset();
@@ -153,7 +152,7 @@ describe("mcpAdapter session lifecycle", () => {
 		mocks.loadMcpConfig.mockReturnValue({ mcpServers: {} });
 		mocks.loadMetadataCache.mockReturnValue(null);
 		mocks.buildProxyDescription.mockReturnValue("MCP gateway");
-		mocks.createDirectToolExecutor.mockReturnValue(vi.fn());
+		mocks.createDirectToolExecutor.mockReturnValue(mock());
 		mocks.getMissingConfiguredDirectToolServers.mockReturnValue([]);
 		mocks.resolveDirectTools.mockReturnValue([]);
 		mocks.getConfigPathFromArgv.mockReturnValue(undefined);
@@ -428,14 +427,14 @@ describe("mcpAdapter session lifecycle", () => {
 		mcpAdapter(api);
 
 		const sessionStart = handlers.get("session_start");
-		await sessionStart?.({}, { hasUI: true, ui: { notify: vi.fn() } });
+		await sessionStart?.({}, { hasUI: true, ui: { notify: mock() } });
 		await Promise.resolve();
 		await Promise.resolve();
 
 		const commandDef = api.registerCommand.mock.calls.find((call: any[]) => call[0] === "mcp")?.[1];
 		expect(commandDef).toBeDefined();
 
-		await commandDef.handler("setup", { hasUI: true, ui: { notify: vi.fn() } });
+		await commandDef.handler("setup", { hasUI: true, ui: { notify: mock() } });
 
 		expect(mocks.openMcpSetup).toHaveBeenCalledWith(
 			state,
@@ -454,7 +453,7 @@ describe("mcpAdapter session lifecycle", () => {
 		const { api, handlers } = createPi();
 		mcpAdapter(api);
 
-		const ui = { notify: vi.fn() };
+		const ui = { notify: mock() };
 		const sessionStart = handlers.get("session_start");
 		await sessionStart?.({}, { hasUI: true, ui });
 		await Promise.resolve();
@@ -474,7 +473,7 @@ describe("mcpAdapter session lifecycle", () => {
 		const { api, handlers } = createPi();
 		mcpAdapter(api);
 
-		const ui = { notify: vi.fn() };
+		const ui = { notify: mock() };
 		const sessionStart = handlers.get("session_start");
 		await sessionStart?.({}, { hasUI: true, ui });
 		await Promise.resolve();
@@ -496,8 +495,8 @@ describe("mcpAdapter session lifecycle", () => {
 		const { api, handlers } = createPi();
 		mcpAdapter(api);
 
-		const ui = { notify: vi.fn() };
-		const reload = vi.fn().mockResolvedValue(undefined);
+		const ui = { notify: mock() };
+		const reload = mock().mockResolvedValue(undefined);
 		const sessionStart = handlers.get("session_start");
 		await sessionStart?.({}, { hasUI: true, ui });
 		await Promise.resolve();
@@ -519,7 +518,7 @@ describe("mcpAdapter session lifecycle", () => {
 		const { api, handlers } = createPi();
 		mcpAdapter(api);
 
-		const ui = { notify: vi.fn() };
+		const ui = { notify: mock() };
 		const sessionStart = handlers.get("session_start");
 		await sessionStart?.({}, { hasUI: true, ui });
 		await Promise.resolve();
@@ -542,7 +541,7 @@ describe("mcpAdapter session lifecycle", () => {
 		const { api, handlers } = createPi();
 		mcpAdapter(api);
 
-		const ui = { notify: vi.fn() };
+		const ui = { notify: mock() };
 		const sessionStart = handlers.get("session_start");
 		await sessionStart?.({}, { hasUI: true, ui });
 		await Promise.resolve();
@@ -585,7 +584,7 @@ describe("mcpAdapter session lifecycle", () => {
 			throw new Error("status boom");
 		});
 
-		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+		const consoleError = spyOn(console, "error").mockImplementation(() => {});
 
 		try {
 			const { default: mcpAdapter } = await import("../src/index.ts");

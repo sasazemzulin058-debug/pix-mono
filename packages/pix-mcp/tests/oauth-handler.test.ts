@@ -1,16 +1,12 @@
+import { afterEach, describe, expect, it } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("oauth-handler path resolution", () => {
 	const originalHome = process.env.HOME;
 	const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
 	const originalOAuthDir = process.env.MCP_OAUTH_DIR;
-
-	beforeEach(() => {
-		vi.resetModules();
-	});
 
 	afterEach(() => {
 		process.env.HOME = originalHome;

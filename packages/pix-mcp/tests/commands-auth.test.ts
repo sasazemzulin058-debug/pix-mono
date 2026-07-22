@@ -1,22 +1,22 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-const mocks = vi.hoisted(() => ({
-	authenticate: vi.fn(),
-	removeAuth: vi.fn(),
-}));
+const mocks = {
+	authenticate: mock(() => {}),
+	removeAuth: mock(() => {}),
+};
 
-vi.mock("../src/mcp-auth-flow.ts", () => ({
+mock.module("../src/mcp-auth-flow.ts", () => ({
 	authenticate: mocks.authenticate,
 	removeAuth: mocks.removeAuth,
 	supportsOAuth: (definition: { url?: string; auth?: string }) =>
 		Boolean(definition.url) && definition.auth !== "bearer",
 }));
 
-vi.mock("../src/init.ts", () => ({
-	getFailureAgeSeconds: vi.fn(() => null),
-	lazyConnect: vi.fn(),
-	updateMetadataCache: vi.fn(),
-	updateStatusBar: vi.fn(),
+mock.module("../src/init.ts", () => ({
+	getFailureAgeSeconds: mock(() => null),
+	lazyConnect: mock(() => {}),
+	updateMetadataCache: mock(() => {}),
+	updateStatusBar: mock(() => {}),
 }));
 
 describe("authenticateServer", () => {
@@ -27,7 +27,7 @@ describe("authenticateServer", () => {
 			await options.onAuthorizationUrl(authorizationUrl);
 			return "authenticated";
 		});
-		const ui = { notify: vi.fn(), setStatus: vi.fn() };
+		const ui = { notify: mock(() => {}), setStatus: mock(() => {}) };
 		const { authenticateServer } = await import("../src/commands.ts");
 
 		const result = await authenticateServer(

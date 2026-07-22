@@ -1,16 +1,21 @@
+import { afterEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("npx-resolver", () => {
 	const originalHome = process.env.HOME;
 	const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
 	const originalNpmCache = process.env.NPM_CONFIG_CACHE;
+	const home = mkdtempSync(join(tmpdir(), "pi-mcp-npx-home-"));
+	const agentDir = mkdtempSync(join(tmpdir(), "pi-mcp-npx-agent-"));
+	const npmCache = mkdtempSync(join(tmpdir(), "pi-mcp-npx-cache-"));
 
-	beforeEach(() => {
-		vi.resetModules();
-	});
+	function useTestEnvironment(): void {
+		process.env.HOME = home;
+		process.env.PI_CODING_AGENT_DIR = agentDir;
+		process.env.NPM_CONFIG_CACHE = npmCache;
+	}
 
 	afterEach(() => {
 		process.env.HOME = originalHome;
@@ -27,14 +32,7 @@ describe("npx-resolver", () => {
 	});
 
 	it("writes mcp-npx-cache.json to PI_CODING_AGENT_DIR", async () => {
-		const home = mkdtempSync(join(tmpdir(), "pi-mcp-npx-home-"));
-		const agentDir = mkdtempSync(join(tmpdir(), "pi-mcp-npx-agent-"));
-		const npmCache = mkdtempSync(join(tmpdir(), "pi-mcp-npx-cache-"));
-
-		process.env.HOME = home;
-		process.env.PI_CODING_AGENT_DIR = agentDir;
-		process.env.NPM_CONFIG_CACHE = npmCache;
-
+		useTestEnvironment();
 		writeCachedPackage(npmCache, "demo-pkg");
 
 		const { resolveNpxBinary } = await import("../src/npx-resolver.ts");
@@ -46,14 +44,7 @@ describe("npx-resolver", () => {
 	});
 
 	it("preserves npx separators for wrapper package arguments", async () => {
-		const home = mkdtempSync(join(tmpdir(), "pi-mcp-npx-home-"));
-		const agentDir = mkdtempSync(join(tmpdir(), "pi-mcp-npx-agent-"));
-		const npmCache = mkdtempSync(join(tmpdir(), "pi-mcp-npx-cache-"));
-
-		process.env.HOME = home;
-		process.env.PI_CODING_AGENT_DIR = agentDir;
-		process.env.NPM_CONFIG_CACHE = npmCache;
-
+		useTestEnvironment();
 		writeCachedPackage(npmCache, "dotenv-cli");
 
 		const { resolveNpxBinary } = await import("../src/npx-resolver.ts");
@@ -70,14 +61,7 @@ describe("npx-resolver", () => {
 	});
 
 	it("does not add separators to npx invocations that did not include one", async () => {
-		const home = mkdtempSync(join(tmpdir(), "pi-mcp-npx-home-"));
-		const agentDir = mkdtempSync(join(tmpdir(), "pi-mcp-npx-agent-"));
-		const npmCache = mkdtempSync(join(tmpdir(), "pi-mcp-npx-cache-"));
-
-		process.env.HOME = home;
-		process.env.PI_CODING_AGENT_DIR = agentDir;
-		process.env.NPM_CONFIG_CACHE = npmCache;
-
+		useTestEnvironment();
 		writeCachedPackage(npmCache, "dotenv-cli");
 
 		const { resolveNpxBinary } = await import("../src/npx-resolver.ts");

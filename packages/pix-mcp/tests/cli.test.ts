@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it, mock } from "bun:test";
 import { spawnSync } from "node:child_process";
 import {
 	existsSync,
@@ -7,9 +8,20 @@ import {
 	symlinkSync,
 	writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as nodeOs from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const { tmpdir } = nodeOs;
+const systemHomedir = nodeOs.homedir();
+mock.module("node:os", () => ({
+	...nodeOs,
+	default: {
+		...nodeOs,
+		homedir: () => process.env.HOME ?? systemHomedir,
+	},
+	homedir: () => process.env.HOME ?? systemHomedir,
+}));
 
 function writeJson(path: string, value: unknown): void {
 	mkdirSync(dirname(path), { recursive: true });
@@ -24,14 +36,15 @@ function readJson(path: string): Record<string, unknown> {
 	}
 }
 
+let cliModuleId = 0;
+function importCli() {
+	return import(`../cli.js?bun-test=${cliModuleId++}`) as Promise<typeof import("../cli.js")>;
+}
+
 describe("cli init helper", () => {
 	const originalHome = process.env.HOME;
 	const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
 	const originalCwd = process.cwd();
-
-	beforeEach(() => {
-		vi.resetModules();
-	});
 
 	afterEach(() => {
 		process.env.HOME = originalHome;
@@ -47,6 +60,7 @@ describe("cli init helper", () => {
 		const home = mkdtempSync(join(tmpdir(), "pi-mcp-cli-home-"));
 		const project = mkdtempSync(join(tmpdir(), "pi-mcp-cli-project-"));
 		process.env.HOME = home;
+		delete process.env.PI_CODING_AGENT_DIR;
 		process.chdir(project);
 
 		writeJson(join(home, ".claude", "mcp.json"), {
@@ -57,7 +71,7 @@ describe("cli init helper", () => {
 
 		const logs: string[] = [];
 		const errors: string[] = [];
-		const { main } = await import("../cli.js");
+		const { main } = await importCli();
 		const exitCode = await main(
 			["init"],
 			(line) => logs.push(line),
@@ -90,7 +104,7 @@ describe("cli init helper", () => {
 
 		const logs: string[] = [];
 		const errors: string[] = [];
-		const { main } = await import("../cli.js");
+		const { main } = await importCli();
 		const exitCode = await main(
 			["init"],
 			(line) => logs.push(line),
@@ -112,9 +126,9 @@ describe("cli init helper", () => {
 		const home = mkdtempSync(join(tmpdir(), "pi-mcp-cli-home-"));
 		const binDir = mkdtempSync(join(tmpdir(), "pi-mcp-cli-bin-"));
 		const symlinkPath = join(binDir, "pix-mcp");
-		symlinkSync(resolve("cli.js"), symlinkPath);
+		symlinkSync(fileURLToPath(new URL("../cli.js", import.meta.url)), symlinkPath);
 
-		const result = spawnSync(process.execPath, [symlinkPath, "init", "--dry-run"], {
+		const result = spawnSync("bun", [symlinkPath, "init", "--dry-run"], {
 			cwd: mkdtempSync(join(tmpdir(), "pi-mcp-cli-project-")),
 			env: {
 				...process.env,
@@ -133,7 +147,7 @@ describe("cli init helper", () => {
 	it("explains that install now goes through `pi install`", async () => {
 		const logs: string[] = [];
 		const errors: string[] = [];
-		const { main } = await import("../cli.js");
+		const { main } = await importCli();
 		const exitCode = await main(
 			["install"],
 			(line) => logs.push(line),

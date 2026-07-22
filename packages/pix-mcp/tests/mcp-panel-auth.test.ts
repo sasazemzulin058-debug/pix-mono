@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 import { createMcpPanel } from "../src/mcp-panel.ts";
 import { computeServerHash, type MetadataCache } from "../src/metadata-cache.ts";
 import type { McpConfig, McpPanelCallbacks } from "../src/types.ts";
@@ -26,7 +26,7 @@ function createCallbacks(status: "connected" | "idle" | "failed" | "needs-auth" 
 	const callbacks: McpPanelCallbacks = {
 		reconnect: async () => true,
 		canAuthenticate: (serverName) => serverName === "github",
-		authenticate: vi.fn(async () => {
+		authenticate: mock(async () => {
 			currentStatus = "idle";
 			return { ok: true };
 		}),
@@ -52,7 +52,7 @@ describe("mcp-panel auth actions", () => {
 			},
 		};
 		const callbacks = createCallbacks("needs-auth");
-		const tui = { requestRender: vi.fn() };
+		const tui = { requestRender: mock(() => {}) };
 		const panel = createMcpPanel(config, createCache(config), new Map(), callbacks, tui, () => {});
 
 		panel.handleInput("\r");
@@ -94,7 +94,7 @@ describe("mcp-panel auth actions", () => {
 			},
 		};
 		const callbacks = createCallbacks("needs-auth");
-		callbacks.authenticate = vi.fn(async () => ({ ok: false, message: "browser launch failed" }));
+		callbacks.authenticate = mock(async () => ({ ok: false, message: "browser launch failed" }));
 		const panel = createMcpPanel(
 			config,
 			createCache(config),
@@ -121,7 +121,7 @@ describe("mcp-panel auth actions", () => {
 		};
 		const callbacks = createCallbacks("needs-auth");
 		callbacks.canAuthenticate = () => true;
-		callbacks.authenticate = vi.fn(async () => ({
+		callbacks.authenticate = mock(async () => ({
 			ok: false,
 			message: "browser \x9d8;;https://example.invalid/error\x1b\\launch\x9d8;;\x1b\\ failed",
 		}));
@@ -155,7 +155,7 @@ describe("mcp-panel auth actions", () => {
 		};
 		const callbacks = createCallbacks("needs-auth");
 		const auth = deferred<{ ok: boolean }>();
-		callbacks.authenticate = vi.fn(() => auth.promise);
+		callbacks.authenticate = mock(() => auth.promise);
 		const panel = createMcpPanel(
 			config,
 			createCache(config),

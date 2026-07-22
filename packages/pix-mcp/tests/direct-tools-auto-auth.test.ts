@@ -1,25 +1,24 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const mocks = vi.hoisted(() => ({
-	lazyConnect: vi.fn(),
-	getFailureAgeSeconds: vi.fn(),
-	authenticate: vi.fn(),
-	supportsOAuth: vi.fn(),
-}));
+const mocks = {
+	lazyConnect: mock(),
+	getFailureAgeSeconds: mock(),
+	authenticate: mock(),
+	supportsOAuth: mock(),
+};
 
-vi.mock("../src/init.ts", () => ({
+mock.module("../src/init.ts", () => ({
 	lazyConnect: mocks.lazyConnect,
 	getFailureAgeSeconds: mocks.getFailureAgeSeconds,
 }));
 
-vi.mock("../src/mcp-auth-flow.ts", () => ({
+mock.module("../src/mcp-auth-flow.ts", () => ({
 	authenticate: mocks.authenticate,
 	supportsOAuth: mocks.supportsOAuth,
 }));
 
 describe("direct tools auto auth", () => {
 	beforeEach(() => {
-		vi.resetModules();
 		mocks.lazyConnect.mockReset();
 		mocks.getFailureAgeSeconds.mockReset().mockReturnValue(null);
 		mocks.authenticate.mockReset().mockResolvedValue("authenticated");
@@ -33,7 +32,7 @@ describe("direct tools auto auth", () => {
 		const connected = {
 			status: "connected",
 			client: {
-				callTool: vi.fn(async () => ({
+				callTool: mock(async () => ({
 					isError: false,
 					content: [{ type: "text", text: "ok" }],
 				})),
@@ -55,17 +54,17 @@ describe("direct tools auto auth", () => {
 				},
 			},
 			manager: {
-				close: vi.fn(async () => {
+				close: mock(async () => {
 					connection = undefined;
 				}),
-				getConnection: vi.fn(() => connection),
-				getRequestOptions: vi.fn(() => ({ timeout: 4321 })),
-				touch: vi.fn(),
-				incrementInFlight: vi.fn(),
-				decrementInFlight: vi.fn(),
+				getConnection: mock(() => connection),
+				getRequestOptions: mock(() => ({ timeout: 4321 })),
+				touch: mock(),
+				incrementInFlight: mock(),
+				decrementInFlight: mock(),
 			},
 			failureTracker: new Map(),
-			ui: { setStatus: vi.fn() },
+			ui: { setStatus: mock() },
 			completedUiSessions: [],
 		} as any;
 
@@ -116,17 +115,17 @@ describe("direct tools auto auth", () => {
 		const connection = {
 			status: "connected",
 			client: {
-				callTool: vi.fn(() => new Promise<never>(() => {})),
+				callTool: mock(() => new Promise<never>(() => {})),
 			},
 		};
 		const state = {
 			config: { settings: {}, mcpServers: { demo: { command: "demo" } } },
 			manager: {
-				getConnection: vi.fn(() => connection),
-				getRequestOptions: vi.fn(() => requestOptions),
-				touch: vi.fn(),
-				incrementInFlight: vi.fn(),
-				decrementInFlight: vi.fn(),
+				getConnection: mock(() => connection),
+				getRequestOptions: mock(() => requestOptions),
+				touch: mock(),
+				incrementInFlight: mock(),
+				decrementInFlight: mock(),
 			},
 			failureTracker: new Map(),
 			completedUiSessions: [],
@@ -171,11 +170,11 @@ describe("direct tools auto auth", () => {
 				},
 			},
 			manager: {
-				close: vi.fn(async () => {}),
-				getConnection: vi.fn(() => ({ status: "needs-auth" })),
-				touch: vi.fn(),
-				incrementInFlight: vi.fn(),
-				decrementInFlight: vi.fn(),
+				close: mock(async () => {}),
+				getConnection: mock(() => ({ status: "needs-auth" })),
+				touch: mock(),
+				incrementInFlight: mock(),
+				decrementInFlight: mock(),
 			},
 			failureTracker: new Map(),
 			ui: undefined,
@@ -215,16 +214,16 @@ describe("direct tools auto auth", () => {
 		]);
 		const connection = {
 			status: "connected",
-			client: { callTool: vi.fn().mockRejectedValue(error) },
+			client: { callTool: mock().mockRejectedValue(error) },
 		};
 		const state = {
 			config: { settings: {}, mcpServers: { demo: { command: "demo" } } },
 			manager: {
-				getConnection: vi.fn(() => connection),
-				handleUrlElicitationRequired: vi.fn().mockResolvedValue("accept"),
-				touch: vi.fn(),
-				incrementInFlight: vi.fn(),
-				decrementInFlight: vi.fn(),
+				getConnection: mock(() => connection),
+				handleUrlElicitationRequired: mock().mockResolvedValue("accept"),
+				touch: mock(),
+				incrementInFlight: mock(),
+				decrementInFlight: mock(),
 			},
 			failureTracker: new Map(),
 			completedUiSessions: [],
@@ -262,11 +261,11 @@ describe("direct tools auto auth", () => {
 				},
 			},
 			manager: {
-				close: vi.fn(async () => {}),
-				getConnection: vi.fn(() => ({ status: "needs-auth" })),
-				touch: vi.fn(),
-				incrementInFlight: vi.fn(),
-				decrementInFlight: vi.fn(),
+				close: mock(async () => {}),
+				getConnection: mock(() => ({ status: "needs-auth" })),
+				touch: mock(),
+				incrementInFlight: mock(),
+				decrementInFlight: mock(),
 			},
 			failureTracker: new Map(),
 			ui: undefined,

@@ -1,13 +1,13 @@
+import { describe, expect, it, mock } from "bun:test";
 import { UrlElicitationRequiredError } from "@modelcontextprotocol/sdk/types.js";
-import { describe, expect, it, vi } from "vitest";
 import type { McpServerManager } from "../src/server-manager.ts";
 import { UiResourceHandler } from "../src/ui-resource-handler.ts";
 
 // Mock the manager
 function createMockManager(overrides: Partial<McpServerManager> = {}): McpServerManager {
 	return {
-		readResource: vi.fn(),
-		getConnection: vi.fn().mockReturnValue(null),
+		readResource: mock(),
+		getConnection: mock(() => null),
 		...overrides,
 	} as unknown as McpServerManager;
 }
@@ -32,7 +32,7 @@ describe("UiResourceHandler", () => {
 					url: "https://example.com/connect",
 				},
 			]);
-			const manager = createMockManager({ readResource: vi.fn().mockRejectedValue(error) });
+			const manager = createMockManager({ readResource: mock(() => Promise.reject(error)) });
 			const handler = new UiResourceHandler(manager);
 
 			await expect(handler.readUiResource("server", "ui://test/widget")).rejects.toBe(error);
@@ -40,15 +40,17 @@ describe("UiResourceHandler", () => {
 
 		it("reads and returns HTML from text content", async () => {
 			const manager = createMockManager({
-				readResource: vi.fn().mockResolvedValue({
-					contents: [
-						{
-							uri: "ui://test/widget",
-							mimeType: "text/html",
-							text: "<h1>Hello</h1>",
-						},
-					],
-				}),
+				readResource: mock(() =>
+					Promise.resolve({
+						contents: [
+							{
+								uri: "ui://test/widget",
+								mimeType: "text/html",
+								text: "<h1>Hello</h1>",
+							},
+						],
+					}),
+				),
 			});
 			const handler = new UiResourceHandler(manager);
 
@@ -64,15 +66,17 @@ describe("UiResourceHandler", () => {
 			const base64Content = Buffer.from(htmlContent).toString("base64");
 
 			const manager = createMockManager({
-				readResource: vi.fn().mockResolvedValue({
-					contents: [
-						{
-							uri: "ui://test/widget",
-							mimeType: "text/html",
-							blob: base64Content,
-						},
-					],
-				}),
+				readResource: mock(() =>
+					Promise.resolve({
+						contents: [
+							{
+								uri: "ui://test/widget",
+								mimeType: "text/html",
+								blob: base64Content,
+							},
+						],
+					}),
+				),
 			});
 			const handler = new UiResourceHandler(manager);
 
@@ -83,15 +87,17 @@ describe("UiResourceHandler", () => {
 
 		it("throws for empty content", async () => {
 			const manager = createMockManager({
-				readResource: vi.fn().mockResolvedValue({
-					contents: [
-						{
-							uri: "ui://test/widget",
-							mimeType: "text/html",
-							text: "   ",
-						},
-					],
-				}),
+				readResource: mock(() =>
+					Promise.resolve({
+						contents: [
+							{
+								uri: "ui://test/widget",
+								mimeType: "text/html",
+								text: "   ",
+							},
+						],
+					}),
+				),
 			});
 			const handler = new UiResourceHandler(manager);
 
@@ -102,15 +108,17 @@ describe("UiResourceHandler", () => {
 
 		it("throws for unsupported MIME type", async () => {
 			const manager = createMockManager({
-				readResource: vi.fn().mockResolvedValue({
-					contents: [
-						{
-							uri: "ui://test/widget",
-							mimeType: "application/json",
-							text: '{"key": "value"}',
-						},
-					],
-				}),
+				readResource: mock(() =>
+					Promise.resolve({
+						contents: [
+							{
+								uri: "ui://test/widget",
+								mimeType: "application/json",
+								text: '{"key": "value"}',
+							},
+						],
+					}),
+				),
 			});
 			const handler = new UiResourceHandler(manager);
 
@@ -121,15 +129,17 @@ describe("UiResourceHandler", () => {
 
 		it("accepts text/html;profile=mcp-app MIME type", async () => {
 			const manager = createMockManager({
-				readResource: vi.fn().mockResolvedValue({
-					contents: [
-						{
-							uri: "ui://test/widget",
-							mimeType: "text/html;profile=mcp-app",
-							text: "<app>content</app>",
-						},
-					],
-				}),
+				readResource: mock(() =>
+					Promise.resolve({
+						contents: [
+							{
+								uri: "ui://test/widget",
+								mimeType: "text/html;profile=mcp-app",
+								text: "<app>content</app>",
+							},
+						],
+					}),
+				),
 			});
 			const handler = new UiResourceHandler(manager);
 
@@ -140,9 +150,11 @@ describe("UiResourceHandler", () => {
 
 		it("throws when no contents returned", async () => {
 			const manager = createMockManager({
-				readResource: vi.fn().mockResolvedValue({
-					contents: [],
-				}),
+				readResource: mock(() =>
+					Promise.resolve({
+						contents: [],
+					}),
+				),
 			});
 			const handler = new UiResourceHandler(manager);
 
@@ -153,20 +165,22 @@ describe("UiResourceHandler", () => {
 
 		it("prefers content with matching URI", async () => {
 			const manager = createMockManager({
-				readResource: vi.fn().mockResolvedValue({
-					contents: [
-						{
-							uri: "ui://other/widget",
-							mimeType: "text/html",
-							text: "<h1>Wrong</h1>",
-						},
-						{
-							uri: "ui://test/widget",
-							mimeType: "text/html",
-							text: "<h1>Correct</h1>",
-						},
-					],
-				}),
+				readResource: mock(() =>
+					Promise.resolve({
+						contents: [
+							{
+								uri: "ui://other/widget",
+								mimeType: "text/html",
+								text: "<h1>Wrong</h1>",
+							},
+							{
+								uri: "ui://test/widget",
+								mimeType: "text/html",
+								text: "<h1>Correct</h1>",
+							},
+						],
+					}),
+				),
 			});
 			const handler = new UiResourceHandler(manager);
 
@@ -177,18 +191,20 @@ describe("UiResourceHandler", () => {
 
 		it("falls back to first HTML content if no URI match", async () => {
 			const manager = createMockManager({
-				readResource: vi.fn().mockResolvedValue({
-					contents: [
-						{
-							mimeType: "application/json",
-							text: "{}",
-						},
-						{
-							mimeType: "text/html",
-							text: "<h1>HTML</h1>",
-						},
-					],
-				}),
+				readResource: mock(() =>
+					Promise.resolve({
+						contents: [
+							{
+								mimeType: "application/json",
+								text: "{}",
+							},
+							{
+								mimeType: "text/html",
+								text: "<h1>HTML</h1>",
+							},
+						],
+					}),
+				),
 			});
 			const handler = new UiResourceHandler(manager);
 
@@ -199,23 +215,25 @@ describe("UiResourceHandler", () => {
 
 		it("extracts CSP meta from content _meta", async () => {
 			const manager = createMockManager({
-				readResource: vi.fn().mockResolvedValue({
-					contents: [
-						{
-							uri: "ui://test/widget",
-							mimeType: "text/html",
-							text: "<h1>Content</h1>",
-							_meta: {
-								ui: {
-									csp: {
-										scriptDomains: ["'self'", "cdn.example.com"],
-										styleDomains: ["'self'"],
+				readResource: mock(() =>
+					Promise.resolve({
+						contents: [
+							{
+								uri: "ui://test/widget",
+								mimeType: "text/html",
+								text: "<h1>Content</h1>",
+								_meta: {
+									ui: {
+										csp: {
+											scriptDomains: ["'self'", "cdn.example.com"],
+											styleDomains: ["'self'"],
+										},
 									},
 								},
 							},
-						},
-					],
-				}),
+						],
+					}),
+				),
 			});
 			const handler = new UiResourceHandler(manager);
 
@@ -229,23 +247,25 @@ describe("UiResourceHandler", () => {
 
 		it("extracts permissions meta", async () => {
 			const manager = createMockManager({
-				readResource: vi.fn().mockResolvedValue({
-					contents: [
-						{
-							uri: "ui://test/widget",
-							mimeType: "text/html",
-							text: "<h1>Content</h1>",
-							_meta: {
-								ui: {
-									permissions: {
-										camera: {},
-										microphone: {},
+				readResource: mock(() =>
+					Promise.resolve({
+						contents: [
+							{
+								uri: "ui://test/widget",
+								mimeType: "text/html",
+								text: "<h1>Content</h1>",
+								_meta: {
+									ui: {
+										permissions: {
+											camera: {},
+											microphone: {},
+										},
 									},
 								},
 							},
-						},
-					],
-				}),
+						],
+					}),
+				),
 			});
 			const handler = new UiResourceHandler(manager);
 
@@ -259,21 +279,23 @@ describe("UiResourceHandler", () => {
 
 		it("extracts domain and prefersBorder meta", async () => {
 			const manager = createMockManager({
-				readResource: vi.fn().mockResolvedValue({
-					contents: [
-						{
-							uri: "ui://test/widget",
-							mimeType: "text/html",
-							text: "<h1>Content</h1>",
-							_meta: {
-								ui: {
-									domain: "example.com",
-									prefersBorder: true,
+				readResource: mock(() =>
+					Promise.resolve({
+						contents: [
+							{
+								uri: "ui://test/widget",
+								mimeType: "text/html",
+								text: "<h1>Content</h1>",
+								_meta: {
+									ui: {
+										domain: "example.com",
+										prefersBorder: true,
+									},
 								},
 							},
-						},
-					],
-				}),
+						],
+					}),
+				),
 			});
 			const handler = new UiResourceHandler(manager);
 
@@ -285,15 +307,17 @@ describe("UiResourceHandler", () => {
 
 		it("throws when content has no text or blob", async () => {
 			const manager = createMockManager({
-				readResource: vi.fn().mockResolvedValue({
-					contents: [
-						{
-							uri: "ui://test/widget",
-							mimeType: "text/html",
-							// No text or blob
-						},
-					],
-				}),
+				readResource: mock(() =>
+					Promise.resolve({
+						contents: [
+							{
+								uri: "ui://test/widget",
+								mimeType: "text/html",
+								// No text or blob
+							},
+						],
+					}),
+				),
 			});
 			const handler = new UiResourceHandler(manager);
 

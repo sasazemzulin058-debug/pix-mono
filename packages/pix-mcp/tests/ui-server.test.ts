@@ -1,5 +1,5 @@
+import { afterEach, describe, expect, it, mock } from "bun:test";
 import http from "node:http";
-import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ConsentManager } from "../src/consent-manager.ts";
 import type { McpServerManager } from "../src/server-manager.ts";
 import type { UiResourceContent } from "../src/types.ts";
@@ -111,27 +111,27 @@ function connectSSE(
 // Mock factories
 function createMockManager(overrides: Partial<McpServerManager> = {}): McpServerManager {
 	return {
-		getConnection: vi.fn().mockReturnValue({
+		getConnection: mock().mockReturnValue({
 			status: "connected",
 			client: {
-				callTool: vi.fn().mockResolvedValue({ content: [{ type: "text", text: "result" }] }),
+				callTool: mock().mockResolvedValue({ content: [{ type: "text", text: "result" }] }),
 			},
 		}),
-		touch: vi.fn(),
-		incrementInFlight: vi.fn(),
-		decrementInFlight: vi.fn(),
-		readResource: vi.fn(),
-		getRequestOptions: vi.fn().mockReturnValue(undefined),
+		touch: mock(),
+		incrementInFlight: mock(),
+		decrementInFlight: mock(),
+		readResource: mock(),
+		getRequestOptions: mock().mockReturnValue(undefined),
 		...overrides,
 	} as unknown as McpServerManager;
 }
 
 function createMockConsentManager(overrides: Partial<ConsentManager> = {}): ConsentManager {
 	return {
-		requiresPrompt: vi.fn().mockReturnValue(false),
-		shouldCacheConsent: vi.fn().mockReturnValue(true),
-		ensureApproved: vi.fn(),
-		registerDecision: vi.fn(),
+		requiresPrompt: mock().mockReturnValue(false),
+		shouldCacheConsent: mock().mockReturnValue(true),
+		ensureApproved: mock(),
+		registerDecision: mock(),
 		...overrides,
 	} as unknown as ConsentManager;
 }
@@ -434,12 +434,12 @@ describe("UiServer", () => {
 	describe("POST /proxy/tools/call", () => {
 		it("proxies tool call to MCP server", async () => {
 			const mockClient = {
-				callTool: vi.fn().mockResolvedValue({ content: [{ type: "text", text: "tool result" }] }),
+				callTool: mock().mockResolvedValue({ content: [{ type: "text", text: "tool result" }] }),
 			};
 			const requestOptions = { timeout: 4321 };
 			const manager = createMockManager({
-				getConnection: vi.fn().mockReturnValue({ status: "connected", client: mockClient }),
-				getRequestOptions: vi.fn().mockReturnValue(requestOptions),
+				getConnection: mock().mockReturnValue({ status: "connected", client: mockClient }),
+				getRequestOptions: mock().mockReturnValue(requestOptions),
 			});
 			handle = await startUiServer(createServerOptions({ manager }));
 
@@ -469,7 +469,7 @@ describe("UiServer", () => {
 
 		it("checks consent before calling tool", async () => {
 			const consentManager = createMockConsentManager({
-				ensureApproved: vi.fn().mockImplementation(() => {
+				ensureApproved: mock().mockImplementation(() => {
 					throw new Error("Consent denied");
 				}),
 			});
@@ -489,7 +489,7 @@ describe("UiServer", () => {
 
 		it("returns 503 when server not connected", async () => {
 			const manager = createMockManager({
-				getConnection: vi.fn().mockReturnValue(null),
+				getConnection: mock().mockReturnValue(null),
 			});
 			handle = await startUiServer(createServerOptions({ manager }));
 
@@ -589,7 +589,7 @@ describe("UiServer", () => {
 
 	describe("POST /proxy/ui/message", () => {
 		it("tracks prompt messages", async () => {
-			const onMessage = vi.fn();
+			const onMessage = mock();
 			handle = await startUiServer(createServerOptions({ onMessage }));
 
 			await request(`http://localhost:${handle.port}/proxy/ui/message`, {
@@ -758,7 +758,7 @@ describe("UiServer", () => {
 
 	describe("POST /proxy/ui/complete", () => {
 		it("marks session complete with reason", async () => {
-			const onComplete = vi.fn();
+			const onComplete = mock();
 			handle = await startUiServer(createServerOptions({ onComplete }));
 
 			const res = await request(`http://localhost:${handle.port}/proxy/ui/complete`, {
@@ -774,7 +774,7 @@ describe("UiServer", () => {
 		});
 
 		it("uses default reason when not provided", async () => {
-			const onComplete = vi.fn();
+			const onComplete = mock();
 			handle = await startUiServer(createServerOptions({ onComplete }));
 
 			await request(`http://localhost:${handle.port}/proxy/ui/complete`, {
@@ -845,7 +845,7 @@ describe("UiServer", () => {
 
 	describe("POST /proxy/ui/context", () => {
 		it("forwards context to callback", async () => {
-			const onContextUpdate = vi.fn();
+			const onContextUpdate = mock();
 			handle = await startUiServer(createServerOptions({ onContextUpdate }));
 
 			const res = await request(`http://localhost:${handle.port}/proxy/ui/context`, {
@@ -886,7 +886,7 @@ describe("UiServer", () => {
 
 	describe("handle.close()", () => {
 		it("marks session complete", async () => {
-			const onComplete = vi.fn();
+			const onComplete = mock();
 			handle = await startUiServer(createServerOptions({ onComplete }));
 
 			handle.close("manual-close");
@@ -895,7 +895,7 @@ describe("UiServer", () => {
 		});
 
 		it("uses default reason when not provided", async () => {
-			const onComplete = vi.fn();
+			const onComplete = mock();
 			handle = await startUiServer(createServerOptions({ onComplete }));
 
 			handle.close();

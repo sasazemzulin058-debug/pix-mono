@@ -1,16 +1,19 @@
+import { afterEach, describe, expect, it, mock } from "bun:test";
 import { existsSync, mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
+import * as nodeOs from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { tmpdir } = nodeOs;
+const systemHomedir = nodeOs.homedir();
+mock.module("node:os", () => ({
+	...nodeOs,
+	homedir: () => process.env.HOME ?? systemHomedir,
+}));
 
 describe("Pi agent dir paths", () => {
 	const originalHome = process.env.HOME;
 	const originalAgentDir = process.env.PI_CODING_AGENT_DIR;
 	const originalOAuthDir = process.env.MCP_OAUTH_DIR;
-
-	beforeEach(() => {
-		vi.resetModules();
-	});
 
 	afterEach(() => {
 		process.env.HOME = originalHome;

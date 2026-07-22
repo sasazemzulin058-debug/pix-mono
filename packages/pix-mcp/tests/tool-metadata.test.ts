@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { formatSchema } from "../src/tool-metadata.ts";
 
 describe("formatSchema", () => {

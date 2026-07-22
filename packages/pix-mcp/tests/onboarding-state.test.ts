@@ -1,14 +1,24 @@
+import { afterEach, describe, expect, it, mock } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import * as nodeOs from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { tmpdir } = nodeOs;
+const systemHomedir = nodeOs.homedir();
+mock.module("node:os", () => ({
+	...nodeOs,
+	homedir: () => process.env.HOME ?? systemHomedir,
+}));
+
+let onboardingModuleId = 0;
+function importOnboardingState() {
+	return import(`../src/onboarding-state.ts?bun-test=${onboardingModuleId++}`) as Promise<
+		typeof import("../src/onboarding-state.ts")
+	>;
+}
 
 describe("onboarding state", () => {
 	const originalHome = process.env.HOME;
-
-	beforeEach(() => {
-		vi.resetModules();
-	});
 
 	afterEach(() => {
 		process.env.HOME = originalHome;
@@ -16,9 +26,7 @@ describe("onboarding state", () => {
 
 	it("returns the default state when no file exists", async () => {
 		process.env.HOME = mkdtempSync(join(tmpdir(), "pi-mcp-onboarding-home-"));
-		const { loadOnboardingState, getOnboardingStatePath } = await import(
-			"../src/onboarding-state.ts"
-		);
+		const { loadOnboardingState, getOnboardingStatePath } = await importOnboardingState();
 
 		expect(loadOnboardingState()).toEqual({
 			version: 1,
@@ -35,7 +43,7 @@ describe("onboarding state", () => {
 			markSetupCompleted,
 			loadOnboardingState,
 			getOnboardingStatePath,
-		} = await import("../src/onboarding-state.ts");
+		} = await importOnboardingState();
 
 		markSharedConfigHintShown("first");
 		markSetupCompleted("second");
@@ -47,7 +55,12 @@ describe("onboarding state", () => {
 			lastDiscoveryFingerprint: "second",
 		});
 
-		const raw = JSON.parse(readFileSync(getOnboardingStatePath(), "utf-8"));
+		let raw: Record<string, unknown>;
+		try {
+			raw = JSON.parse(readFileSync(getOnboardingStatePath(), "utf-8"));
+		} catch (cause) {
+			throw new Error("Cannot parse onboarding test state", { cause });
+		}
 		expect(raw.sharedConfigHintShown).toBe(true);
 		expect(raw.setupCompleted).toBe(true);
 	});

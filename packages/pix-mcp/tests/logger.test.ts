@@ -1,12 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import { type LogEntry, logger } from "../src/logger.ts";
 
 describe("Logger", () => {
 	beforeEach(() => {
-		vi.spyOn(console, "debug").mockImplementation(() => undefined);
-		vi.spyOn(console, "log").mockImplementation(() => undefined);
-		vi.spyOn(console, "warn").mockImplementation(() => undefined);
-		vi.spyOn(console, "error").mockImplementation(() => undefined);
+		spyOn(console, "debug").mockImplementation(() => undefined);
+		spyOn(console, "log").mockImplementation(() => undefined);
+		spyOn(console, "warn").mockImplementation(() => undefined);
+		spyOn(console, "error").mockImplementation(() => undefined);
 
 		logger.clearHandlers();
 		logger.setLevel("debug"); // Enable all levels for testing
@@ -14,7 +14,7 @@ describe("Logger", () => {
 	});
 
 	afterEach(() => {
-		vi.restoreAllMocks();
+		mock.restore();
 	});
 
 	describe("log levels", () => {
@@ -138,8 +138,8 @@ describe("Logger", () => {
 
 	describe("handlers", () => {
 		it("calls all registered handlers", () => {
-			const handler1 = vi.fn();
-			const handler2 = vi.fn();
+			const handler1 = mock(() => {});
+			const handler2 = mock(() => {});
 			logger.addHandler(handler1);
 			logger.addHandler(handler2);
 
@@ -150,10 +150,10 @@ describe("Logger", () => {
 		});
 
 		it("ignores handler errors", () => {
-			const badHandler = vi.fn().mockImplementation(() => {
+			const badHandler = mock(() => {
 				throw new Error("handler error");
 			});
-			const goodHandler = vi.fn();
+			const goodHandler = mock(() => {});
 			logger.addHandler(badHandler);
 			logger.addHandler(goodHandler);
 
@@ -163,7 +163,7 @@ describe("Logger", () => {
 		});
 
 		it("clearHandlers removes all handlers", () => {
-			const handler = vi.fn();
+			const handler = mock(() => {});
 			logger.addHandler(handler);
 			logger.clearHandlers();
 

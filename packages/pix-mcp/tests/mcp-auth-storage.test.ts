@@ -1,7 +1,7 @@
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getAuthEntry, getAuthEntryFilePath, saveAuthEntry } from "../src/mcp-auth.ts";
 
 describe("mcp-auth storage paths", () => {

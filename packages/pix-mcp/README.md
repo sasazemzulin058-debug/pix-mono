@@ -84,6 +84,22 @@ metadata is cached after the first explicit connection or call, and later
 sessions can search, list, and describe valid cached metadata without a live
 connection. Eager and keep-alive servers still connect at startup.
 
+## Development
+
+The test suite uses `bun:test` throughout:
+
+```bash
+bun run test
+```
+
+The package test command uses `scripts/test.ts` to run each test file in a
+separate Bun process. This isolation is intentional: Bun's `mock.module()`
+state can currently leak between test files even when `bun test --isolate` is
+used, causing tests that pass individually to interfere with the full suite.
+The runner is small, cross-platform, and is not included in the published npm
+package. It can be removed once Bun provides reliable module-mock isolation,
+or after the tests are refactored to avoid module-level mocks.
+
 ## Compatibility
 
 The package preserves the upstream MCP transport, OAuth, sampling,

@@ -1,47 +1,53 @@
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
 	clients: [] as any[],
 	transports: [] as any[],
-	open: vi.fn(async () => undefined),
-}));
+	open: mock(async () => undefined),
+};
 
-vi.mock("open", () => ({ default: mocks.open }));
+mock.module("open", () => ({ default: mocks.open }));
 
-vi.mock("@modelcontextprotocol/sdk/client/index.js", () => ({
-	Client: vi.fn().mockImplementation(function (this: any, info: unknown, options: unknown) {
-		this.info = info;
-		this.options = options;
-		this.setRequestHandler = vi.fn();
-		this.setNotificationHandler = vi.fn();
-		this.connect = vi.fn(async () => undefined);
-		this.listTools = vi.fn(async () => ({ tools: [] }));
-		this.listResources = vi.fn(async () => ({ resources: [] }));
-		this.close = vi.fn(async () => undefined);
-		mocks.clients.push(this);
+mock.module("@modelcontextprotocol/sdk/client/index.js", () => ({
+	Client: mock((info: unknown, options: unknown) => {
+		const client = {
+			info,
+			options,
+			setRequestHandler: mock(),
+			setNotificationHandler: mock(),
+			connect: mock(async () => undefined),
+			listTools: mock(async () => ({ tools: [] })),
+			listResources: mock(async () => ({ resources: [] })),
+			close: mock(async () => undefined),
+		};
+		mocks.clients.push(client);
+		return client;
 	}),
 }));
 
-vi.mock("@modelcontextprotocol/sdk/client/stdio.js", () => ({
-	StdioClientTransport: vi.fn().mockImplementation(function (this: any, options: unknown) {
-		this.options = options;
-		this.close = vi.fn(async () => undefined);
-		mocks.transports.push(this);
+mock.module("@modelcontextprotocol/sdk/client/stdio.js", () => ({
+	StdioClientTransport: mock((options: unknown) => {
+		const transport = {
+			options,
+			close: mock(async () => undefined),
+		};
+		mocks.transports.push(transport);
+		return transport;
 	}),
 }));
 
-vi.mock("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
-	StreamableHTTPClientTransport: vi.fn(),
+mock.module("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
+	StreamableHTTPClientTransport: mock(),
 }));
 
-vi.mock("@modelcontextprotocol/sdk/client/sse.js", () => ({
-	SSEClientTransport: vi.fn(),
+mock.module("@modelcontextprotocol/sdk/client/sse.js", () => ({
+	SSEClientTransport: mock(),
 }));
 
-vi.mock("../src/npx-resolver.ts", () => ({
-	resolveNpxBinary: vi.fn(async () => null),
+mock.module("../src/npx-resolver.ts", () => ({
+	resolveNpxBinary: mock(async () => null),
 }));
 
 describe("McpServerManager sampling", () => {
@@ -121,9 +127,9 @@ describe("McpServerManager sampling", () => {
 	it("notifies only when a known URL elicitation completes", async () => {
 		const { McpServerManager } = await import("../src/server-manager.ts");
 		const ui = {
-			select: vi.fn().mockResolvedValue("Open"),
-			input: vi.fn(),
-			notify: vi.fn(),
+			select: mock().mockResolvedValue("Open"),
+			input: mock(),
+			notify: mock(),
 		};
 		const manager = new McpServerManager();
 		manager.setElicitationConfig({ allowUrl: true, ui: ui as any });
@@ -157,9 +163,9 @@ describe("McpServerManager sampling", () => {
 		const { UrlElicitationRequiredError } = await import("@modelcontextprotocol/sdk/types.js");
 		const { McpServerManager } = await import("../src/server-manager.ts");
 		const ui = {
-			select: vi.fn().mockResolvedValue("Open"),
-			input: vi.fn(),
-			notify: vi.fn(),
+			select: mock().mockResolvedValue("Open"),
+			input: mock(),
+			notify: mock(),
 		};
 		const manager = new McpServerManager();
 		manager.setElicitationConfig({ allowUrl: true, ui: ui as any });

@@ -1,36 +1,39 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 function writeJson(path: string, value: unknown): void {
 	mkdirSync(dirname(path), { recursive: true });
 	writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, "utf-8");
 }
 
+const originalHome = process.env.HOME;
 const mocks = {
-	createMcpPanel: vi.fn(),
-	createMcpSetupPanel: vi.fn(),
+	createMcpPanel: mock((..._args: any[]) => {}),
+	createMcpSetupPanel: mock((..._args: any[]) => {}),
 };
 
-vi.mock("../src/mcp-panel.ts", () => ({
+mock.module("../src/mcp-panel.ts", () => ({
 	createMcpPanel: mocks.createMcpPanel,
 }));
 
-vi.mock("../src/mcp-setup-panel.ts", () => ({
+mock.module("../src/mcp-setup-panel.ts", () => ({
 	createMcpSetupPanel: mocks.createMcpSetupPanel,
 }));
 
 describe("commands onboarding", () => {
-	const originalHome = process.env.HOME;
 	const originalOAuthDir = process.env.MCP_OAUTH_DIR;
 	const originalCwd = process.cwd();
+	const sharedConfigPath = join(originalHome ?? "", ".config", "mcp", "mcp.json");
+	const onboardingPath = join(originalHome ?? "", ".pi", "agent", "mcp-onboarding.json");
 
 	beforeEach(() => {
-		vi.resetModules();
+		process.env.HOME = originalHome;
+		rmSync(onboardingPath, { force: true });
 		mocks.createMcpPanel
 			.mockReset()
-			.mockImplementation((_config, _cache, _prov, _callbacks, _tui, done) => {
+			.mockImplementation((_config, _cache, _prov, _callbacks, _tui, done, _options) => {
 				done({ cancelled: true, changes: new Map() });
 				return { dispose() {} };
 			});
@@ -54,14 +57,20 @@ describe("commands onboarding", () => {
 
 	function createUi() {
 		return {
-			notify: vi.fn(),
-			setStatus: vi.fn(),
-			custom: vi.fn((renderer: any) => renderer({ requestRender: vi.fn() }, {}, {}, vi.fn())),
+			notify: mock(() => {}),
+			setStatus: mock(() => {}),
+			custom: mock((renderer: any) =>
+				renderer(
+					{ requestRender: mock(() => {}) },
+					{},
+					{},
+					mock(() => {}),
+				),
+			),
 		};
 	}
 
 	it("opens setup mode when no MCP servers are configured", async () => {
-		process.env.HOME = mkdtempSync(join(tmpdir(), "pi-mcp-commands-home-"));
 		const ui = createUi();
 		const { openMcpPanel } = await import("../src/commands.ts");
 
@@ -81,12 +90,11 @@ describe("commands onboarding", () => {
 	});
 
 	it("shows a one-time shared-config notice in the MCP panel", async () => {
-		const home = mkdtempSync(join(tmpdir(), "pi-mcp-commands-home-"));
 		const project = mkdtempSync(join(tmpdir(), "pi-mcp-commands-project-"));
-		process.env.HOME = home;
 		process.chdir(project);
 
-		writeJson(join(home, ".config", "mcp", "mcp.json"), {
+		rmSync(sharedConfigPath, { force: true });
+		writeJson(sharedConfigPath, {
 			mcpServers: {
 				sharedServer: { command: "shared" },
 			},
@@ -110,14 +118,19 @@ describe("commands onboarding", () => {
 
 		expect(mocks.createMcpPanel).toHaveBeenCalled();
 		const options = mocks.createMcpPanel.mock.calls[0]?.[6];
-		expect(options.noticeLines[0]).toContain("Using standard MCP config");
+		expect(options).toEqual(
+			expect.objectContaining({
+				noticeLines: expect.arrayContaining([expect.stringContaining("Using standard MCP config")]),
+			}),
+		);
 		expect(loadOnboardingState().sharedConfigHintShown).toBe(true);
+		rmSync(sharedConfigPath, { force: true });
 	});
 
 	it("clears OAuth credentials, cancels pending auth, and closes the server on logout", async () => {
 		process.env.MCP_OAUTH_DIR = mkdtempSync(join(tmpdir(), "pi-mcp-commands-logout-"));
 		const ui = createUi();
-		const close = vi.fn();
+		const close = mock(() => {});
 		const { getAuthEntry, updateOAuthState, updateTokens } = await import("../src/mcp-auth.ts");
 		const { waitForCallback } = await import("../src/mcp-callback-server.ts");
 		const { logoutServer } = await import("../src/commands.ts");
@@ -129,8 +142,10 @@ describe("commands onboarding", () => {
 		);
 		updateOAuthState("oauth-server", "pending-state", "https://example.com/mcp");
 		const pendingCallback = waitForCallback("pending-state");
-		const pendingCallbackRejection =
-			expect(pendingCallback).rejects.toThrow("Authorization cancelled");
+		const pendingCallbackResult = pendingCallback.then(
+			() => null,
+			(error: Error) => error,
+		);
 
 		const result = await logoutServer(
 			"oauth-server",
@@ -145,7 +160,8 @@ describe("commands onboarding", () => {
 			{ hasUI: true, ui } as any,
 		);
 
-		await pendingCallbackRejection;
+		const pendingError = await pendingCallbackResult;
+		expect(pendingError?.message).toBe("Authorization cancelled");
 		expect(result.ok).toBe(true);
 		expect(getAuthEntry("oauth-server")).toBeUndefined();
 		expect(close).toHaveBeenCalledWith("oauth-server");

@@ -1,18 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 // End-to-end coverage for the structuredContent fallback.
 
-const mocks = vi.hoisted(() => ({
-	lazyConnect: vi.fn(),
-	getFailureAgeSeconds: vi.fn(),
-}));
+const mocks = {
+	lazyConnect: mock(() => Promise.resolve(true) as any),
+	getFailureAgeSeconds: mock((() => null) as any),
+};
 
-vi.mock("../src/init.ts", () => ({
+mock.module("../src/init.ts", () => ({
 	lazyConnect: mocks.lazyConnect,
 	getFailureAgeSeconds: mocks.getFailureAgeSeconds,
-	updateServerMetadata: vi.fn(),
-	updateMetadataCache: vi.fn(),
-	updateStatusBar: vi.fn(),
+	updateServerMetadata: mock(() => {}),
+	updateMetadataCache: mock(() => {}),
+	updateStatusBar: mock(() => {}),
 }));
 
 function textOf(result: any): string {
@@ -22,7 +22,7 @@ function textOf(result: any): string {
 function makeState(callToolResult: unknown, toolName = "tool") {
 	const connection = {
 		status: "connected",
-		client: { callTool: vi.fn(async () => callToolResult) },
+		client: { callTool: mock(async () => callToolResult) },
 	};
 	return {
 		config: { settings: {}, mcpServers: { demo: { command: "demo" } } },
@@ -30,10 +30,10 @@ function makeState(callToolResult: unknown, toolName = "tool") {
 			["demo", [{ name: `demo_${toolName}`, originalName: toolName, description: toolName }]],
 		]),
 		manager: {
-			getConnection: vi.fn(() => connection),
-			touch: vi.fn(),
-			incrementInFlight: vi.fn(),
-			decrementInFlight: vi.fn(),
+			getConnection: mock(() => connection),
+			touch: mock(() => {}),
+			incrementInFlight: mock(() => {}),
+			decrementInFlight: mock(() => {}),
 		},
 		failureTracker: new Map(),
 		ui: undefined,
@@ -43,7 +43,6 @@ function makeState(callToolResult: unknown, toolName = "tool") {
 
 describe("structuredContent fallback — direct tool executor", () => {
 	beforeEach(() => {
-		vi.resetModules();
 		mocks.lazyConnect.mockReset().mockResolvedValue(true);
 		mocks.getFailureAgeSeconds.mockReset().mockReturnValue(null);
 	});
@@ -88,7 +87,6 @@ describe("structuredContent fallback — direct tool executor", () => {
 
 describe("structuredContent fallback — proxy executeCall", () => {
 	beforeEach(() => {
-		vi.resetModules();
 		mocks.lazyConnect.mockReset().mockResolvedValue(true);
 		mocks.getFailureAgeSeconds.mockReset().mockReturnValue(null);
 	});

@@ -1,5 +1,5 @@
+import { describe, expect, it } from "bun:test";
 import type { AgentToolResult, ToolRenderResultOptions } from "@earendil-works/pi-coding-agent";
-import { describe, expect, it } from "vitest";
 import {
 	formatMcpDirectToolCallLines,
 	formatMcpProxyToolCallLines,

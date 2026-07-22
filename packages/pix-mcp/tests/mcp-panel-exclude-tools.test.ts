@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { createMcpPanel } from "../src/mcp-panel.ts";
 import { computeServerHash, type MetadataCache } from "../src/metadata-cache.ts";
 import type { McpConfig } from "../src/types.ts";

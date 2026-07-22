@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 import { abortable } from "../src/abort.ts";
 import { createDirectToolExecutor } from "../src/direct-tools.ts";
 import { lazyConnect } from "../src/init.ts";
@@ -12,12 +12,12 @@ function connectedState(client: Record<string, unknown>) {
 			mcpServers: { demo: { command: "node", args: ["server.js"] } },
 		},
 		manager: {
-			getConnection: vi.fn(() => ({ status: "connected", client, tools: [], resources: [] })),
-			touch: vi.fn(),
-			incrementInFlight: vi.fn(),
-			decrementInFlight: vi.fn(),
-			close: vi.fn(async () => undefined),
-			getRequestOptions: vi.fn((_server: string, signal?: AbortSignal) =>
+			getConnection: mock(() => ({ status: "connected", client, tools: [], resources: [] })),
+			touch: mock(() => {}),
+			incrementInFlight: mock(() => {}),
+			decrementInFlight: mock(() => {}),
+			close: mock(async () => undefined),
+			getRequestOptions: mock((_server: string, signal?: AbortSignal) =>
 				signal ? { signal } : undefined,
 			),
 		},
@@ -50,7 +50,7 @@ describe("AbortSignal propagation", () => {
 
 	it("direct tools pass AbortSignal to MCP callTool and settle if the MCP SDK promise hangs", async () => {
 		const controller = new AbortController();
-		const callTool = vi.fn(() => new Promise<never>(() => {}));
+		const callTool = mock(() => new Promise<never>(() => {}));
 		const state = connectedState({ callTool });
 		const execute = createDirectToolExecutor(
 			() => state,
@@ -80,7 +80,7 @@ describe("AbortSignal propagation", () => {
 
 	it("proxy tool calls pass AbortSignal to MCP callTool and settle if the MCP SDK promise hangs", async () => {
 		const controller = new AbortController();
-		const callTool = vi.fn(() => new Promise<never>(() => {}));
+		const callTool = mock(() => new Promise<never>(() => {}));
 		const state = connectedState({ callTool });
 
 		const inFlight = executeCall(state, "demo_slow", {}, undefined, undefined, controller.signal);
@@ -103,12 +103,12 @@ describe("AbortSignal propagation", () => {
 		const state = {
 			config: { mcpServers: { demo: { command: "node", args: ["server.js"] } } },
 			manager: {
-				connect: vi.fn(async (_name, _definition, signal?: AbortSignal) => {
+				connect: mock(async (_name: string, _definition: any, signal?: AbortSignal) => {
 					controller.abort(new Error("user cancelled"));
 					signal?.throwIfAborted();
 					return { status: "connected", tools: [], resources: [] };
 				}),
-				getAllConnections: vi.fn(() => new Map()),
+				getAllConnections: mock(() => new Map()),
 			},
 			toolMetadata: new Map(),
 			failureTracker: new Map(),
@@ -131,15 +131,15 @@ describe("AbortSignal propagation", () => {
 		const state = {
 			config: { mcpServers: { demo: { command: "node", args: ["server.js"] } } },
 			manager: {
-				getConnection: vi.fn(() => undefined),
-				connect: vi.fn(async (_name, _definition, signal?: AbortSignal) => {
+				getConnection: mock(() => undefined),
+				connect: mock(async (_name: string, _definition: any, signal?: AbortSignal) => {
 					signal?.throwIfAborted();
 					return { status: "connected", tools: [], resources: [] };
 				}),
 			},
 			toolMetadata: new Map(),
 			failureTracker: new Map(),
-			ui: { setStatus: vi.fn() },
+			ui: { setStatus: mock(() => {}) },
 		} as any;
 
 		controller.abort(new Error("user cancelled"));
@@ -151,7 +151,7 @@ describe("AbortSignal propagation", () => {
 	it("server-manager resource discovery does not swallow host aborts", async () => {
 		const controller = new AbortController();
 		const client = {
-			listResources: vi.fn(async (_params, options?: { signal?: AbortSignal }) => {
+			listResources: mock(async (_params: any, options?: { signal?: AbortSignal }) => {
 				options?.signal?.throwIfAborted();
 				return { resources: [] };
 			}),
@@ -167,7 +167,7 @@ describe("AbortSignal propagation", () => {
 
 	it("server-manager readResource passes AbortSignal through the MCP SDK request options", async () => {
 		const controller = new AbortController();
-		const readResource = vi.fn(async () => ({ contents: [] }));
+		const readResource = mock(async () => ({ contents: [] }));
 		const manager = new McpServerManager({} as any);
 		(manager as any).connections.set("demo", {
 			status: "connected",

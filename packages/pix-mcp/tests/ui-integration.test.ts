@@ -5,8 +5,8 @@
  * through browser communication back to agent message retrieval.
  */
 
+import { afterEach, describe, expect, it, mock } from "bun:test";
 import http from "node:http";
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConsentManager } from "../src/consent-manager.ts";
 import type { McpServerManager } from "../src/server-manager.ts";
 import type { UiResourceContent, UiSessionMessages } from "../src/types.ts";
@@ -150,10 +150,10 @@ function createIntegrationManager(): McpServerManager {
 	]);
 
 	return {
-		getConnection: vi.fn().mockReturnValue({
+		getConnection: mock(() => ({
 			status: "connected",
 			client: {
-				callTool: vi.fn().mockImplementation(async ({ name }) => {
+				callTool: mock(async ({ name }: { name: string }) => {
 					const tool = tools.get(name);
 					if (!tool) throw new Error(`Unknown tool: ${name}`);
 					if ((tool as { delay?: number }).delay) {
@@ -162,11 +162,11 @@ function createIntegrationManager(): McpServerManager {
 					return { content: [{ type: "text", text: JSON.stringify(tool.result) }] };
 				}),
 			},
-		}),
-		touch: vi.fn(),
-		incrementInFlight: vi.fn(),
-		decrementInFlight: vi.fn(),
-		readResource: vi.fn().mockResolvedValue({
+		})),
+		touch: mock(() => {}),
+		incrementInFlight: mock(() => {}),
+		decrementInFlight: mock(() => {}),
+		readResource: mock(async () => ({
 			contents: [
 				{
 					uri: "ui://test/app",
@@ -182,7 +182,7 @@ function createIntegrationManager(): McpServerManager {
 </html>`,
 				},
 			],
-		}),
+		})),
 	} as unknown as McpServerManager;
 }
 
@@ -210,7 +210,7 @@ describe("MCP UI Integration", () => {
 			};
 
 			const receivedMessages: UiSessionMessages = { prompts: [], notifications: [], intents: [] };
-			const onMessage = vi.fn().mockImplementation((params) => {
+			const onMessage = mock((params: any) => {
 				if (params.type === "prompt") receivedMessages.prompts.push(params.prompt);
 			});
 
@@ -383,7 +383,7 @@ describe("MCP UI Integration", () => {
 
 	describe("Session Lifecycle", () => {
 		it("calls onComplete when session ends", async () => {
-			const onComplete = vi.fn();
+			const onComplete = mock(() => {});
 			const manager = createIntegrationManager();
 			const consentManager = new ConsentManager("never");
 
@@ -446,12 +446,14 @@ describe("MCP UI Integration", () => {
 		it("handles MCP server errors gracefully", async () => {
 			const manager = {
 				...createIntegrationManager(),
-				getConnection: vi.fn().mockReturnValue({
+				getConnection: mock(() => ({
 					status: "connected",
 					client: {
-						callTool: vi.fn().mockRejectedValue(new Error("MCP server error")),
+						callTool: mock(async () => {
+							throw new Error("MCP server error");
+						}),
 					},
-				}),
+				})),
 			} as unknown as McpServerManager;
 
 			const consentManager = new ConsentManager("never");
@@ -483,7 +485,7 @@ describe("MCP UI Integration", () => {
 		it("handles disconnected server", async () => {
 			const manager = {
 				...createIntegrationManager(),
-				getConnection: vi.fn().mockReturnValue(null),
+				getConnection: mock(() => null),
 			} as unknown as McpServerManager;
 
 			const consentManager = new ConsentManager("never");

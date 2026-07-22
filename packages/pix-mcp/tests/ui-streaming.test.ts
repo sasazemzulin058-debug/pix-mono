@@ -1,5 +1,5 @@
+import { afterEach, describe, expect, it, mock } from "bun:test";
 import http from "node:http";
-import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ConsentManager } from "../src/consent-manager.ts";
 import { McpServerManager } from "../src/server-manager.ts";
 import {
@@ -197,17 +197,17 @@ describe("UI Streaming", () => {
 
 	describe("McpServerManager stream listeners", () => {
 		function attachNotificationHandler(manager: McpServerManager, serverName = "test-server") {
-			const client = { setNotificationHandler: vi.fn() };
+			const client = { setNotificationHandler: mock(() => {}) };
 			(
 				manager as unknown as {
 					attachAdapterNotificationHandlers: (
 						serverName: string,
-						client: { setNotificationHandler: typeof client.setNotificationHandler },
+						client: { setNotificationHandler: (...args: any[]) => any },
 					) => void;
 				}
 			).attachAdapterNotificationHandlers(serverName, client);
-			expect(client.setNotificationHandler).toHaveBeenCalledOnce();
-			return client.setNotificationHandler.mock.calls[0][1] as (notification: {
+			expect(client.setNotificationHandler).toHaveBeenCalledTimes(1);
+			return (client.setNotificationHandler as any).mock.calls[0][1] as (notification: {
 				method: string;
 				params: {
 					streamToken: string;
@@ -218,7 +218,7 @@ describe("UI Streaming", () => {
 
 		it("routes notifications to the matching listener", () => {
 			const manager = new McpServerManager();
-			const listener = vi.fn();
+			const listener = mock(() => {});
 			const handleNotification = attachNotificationHandler(manager, "server-a");
 
 			manager.registerUiStreamListener("token-123", listener);
@@ -238,7 +238,7 @@ describe("UI Streaming", () => {
 
 		it("does not call removed listeners", () => {
 			const manager = new McpServerManager();
-			const listener = vi.fn();
+			const listener = mock(() => {});
 			const handleNotification = attachNotificationHandler(manager);
 
 			manager.registerUiStreamListener("token-456", listener);
@@ -257,8 +257,8 @@ describe("UI Streaming", () => {
 
 		it("keeps multiple listeners isolated by stream token", () => {
 			const manager = new McpServerManager();
-			const listener1 = vi.fn();
-			const listener2 = vi.fn();
+			const listener1 = mock(() => {});
+			const listener2 = mock(() => {});
 			const handleNotification = attachNotificationHandler(manager, "server-b");
 
 			manager.registerUiStreamListener("token-1", listener1);

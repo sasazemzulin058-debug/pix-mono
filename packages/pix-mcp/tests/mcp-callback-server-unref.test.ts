@@ -1,77 +1,81 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, type Mock, mock } from "bun:test";
 
 type MockServer = {
-	once: ReturnType<typeof vi.fn>;
-	listen: ReturnType<typeof vi.fn>;
-	close: ReturnType<typeof vi.fn>;
-	unref: ReturnType<typeof vi.fn>;
-	address: ReturnType<typeof vi.fn>;
+	once: Mock<(event: string, handler: (error?: NodeJS.ErrnoException) => void) => MockServer>;
+	listen: Mock<(port: number, host: string, onListen: () => void) => void>;
+	close: Mock<(cb?: () => void) => void>;
+	unref: Mock<() => void>;
+	address: Mock<() => { address: string; family: string; port: number }>;
 	handlers: Map<string, (error?: NodeJS.ErrnoException) => void>;
 };
 
-const mocks = vi.hoisted(() => {
-	const state = {
-		configuredPort: 4337,
-		activePort: 4337,
-		callbackPath: "/callback",
-	};
+const state = {
+	configuredPort: 4337,
+	activePort: 4337,
+	callbackPath: "/callback",
+};
 
-	const runtime = {
-		assignedPort: 4338,
-		listenImpl: (
-			_server: MockServer,
-			_port: number,
-			_host: string,
-			onListen: () => void,
-			_handlers: Map<string, (error?: NodeJS.ErrnoException) => void>,
-		) => {
-			onListen();
-		},
-		servers: [] as MockServer[],
-	};
+const runtime = {
+	assignedPort: 4338,
+	listenImpl: (
+		_server: MockServer,
+		_port: number,
+		_host: string,
+		onListen: () => void,
+		_handlers: Map<string, (error?: NodeJS.ErrnoException) => void>,
+	) => {
+		onListen();
+	},
+	servers: [] as MockServer[],
+};
 
-	const createServer = vi.fn((_handler: unknown) => {
-		const handlers = new Map<string, (error?: NodeJS.ErrnoException) => void>();
-		const server: MockServer = {
-			handlers,
-			once: vi.fn((event: string, handler: (error?: NodeJS.ErrnoException) => void) => {
-				handlers.set(event, handler);
-				return server;
-			}),
-			listen: vi.fn((port: number, host: string, onListen: () => void) => {
-				runtime.listenImpl(server, port, host, onListen, handlers);
-			}),
-			close: vi.fn((cb?: () => void) => cb?.()),
-			unref: vi.fn(),
-			address: vi.fn(() => ({ address: "127.0.0.1", family: "IPv4", port: runtime.assignedPort })),
-		};
-
-		runtime.servers.push(server);
-		return server;
-	});
-
-	return {
-		state,
-		runtime,
-		createServer,
-		getConfiguredOAuthCallbackPort: vi.fn(() => state.configuredPort),
-		getOAuthCallbackPort: vi.fn(() => state.activePort),
-		getOAuthCallbackPath: vi.fn(() => state.callbackPath),
-		setOAuthCallbackPath: vi.fn((path: string) => {
-			state.callbackPath = path.startsWith("/") ? path : `/${path}`;
+const createServer = mock((_handler: unknown) => {
+	const handlers = new Map<string, (error?: NodeJS.ErrnoException) => void>();
+	const server: MockServer = {
+		handlers,
+		once: mock((event: string, handler: (error?: NodeJS.ErrnoException) => void) => {
+			handlers.set(event, handler);
+			return server;
 		}),
-		setOAuthCallbackPort: vi.fn((port: number) => {
-			state.activePort = port;
+		listen: mock((port: number, host: string, onListen: () => void) => {
+			runtime.listenImpl(server, port, host, onListen, handlers);
 		}),
+		close: mock((cb?: () => void) => cb?.()),
+		unref: mock(),
+		address: mock(() => ({
+			address: "127.0.0.1",
+			family: "IPv4",
+			port: runtime.assignedPort,
+		})),
 	};
+
+	runtime.servers.push(server);
+	return server;
 });
 
-vi.mock("http", () => ({
+const mocks = {
+	state,
+	runtime,
+	createServer,
+	getConfiguredOAuthCallbackPort: mock(() => state.configuredPort),
+	getOAuthCallbackPort: mock(() => state.activePort),
+	getOAuthCallbackPath: mock(() => state.callbackPath),
+	setOAuthCallbackPath: mock((path: string) => {
+		state.callbackPath = path.startsWith("/") ? path : `/${path}`;
+	}),
+	setOAuthCallbackPort: mock((port: number) => {
+		state.activePort = port;
+	}),
+};
+
+mock.module("node:http", () => ({
 	createServer: mocks.createServer,
 }));
 
-vi.mock("../src/mcp-oauth-provider.ts", () => ({
+mock.module("../src/mcp-oauth-provider.ts", () => ({
 	DEFAULT_OAUTH_CALLBACK_PATH: "/callback",
+	DEFAULT_OAUTH_CALLBACK_PORT: 4337,
+	McpOAuthProvider: class McpOAuthProvider {},
 	getConfiguredOAuthCallbackPort: mocks.getConfiguredOAuthCallbackPort,
 	getOAuthCallbackPath: mocks.getOAuthCallbackPath,
 	getOAuthCallbackPort: mocks.getOAuthCallbackPort,
@@ -80,8 +84,9 @@ vi.mock("../src/mcp-oauth-provider.ts", () => ({
 }));
 
 describe("mcp-callback-server", () => {
-	beforeEach(() => {
-		vi.resetModules();
+	beforeEach(async () => {
+		const { stopCallbackServer } = await import("../src/mcp-callback-server.ts");
+		await stopCallbackServer();
 		mocks.state.configuredPort = 4337;
 		mocks.state.activePort = 4337;
 		mocks.state.callbackPath = "/callback";

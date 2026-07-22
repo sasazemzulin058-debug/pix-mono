@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { toolErrorOverride } from "../src/error-signal.ts";
 
 describe("toolErrorOverride", () => {

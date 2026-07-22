@@ -1,38 +1,45 @@
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import type {
 	ExtensionAPI,
 	ExtensionContext,
-	ExtensionMode,
 	ExtensionUIContext,
 } from "@earendil-works/pi-coding-agent";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({
-	loadMcpConfig: vi.fn(),
+const mocks = {
+	loadMcpConfig: mock(() => ({ mcpServers: {}, settings: {} })),
 	managers: [] as any[],
-}));
+};
 
-vi.mock("../src/config.ts", async (importOriginal) => ({
-	...(await importOriginal<typeof import("../src/config.ts")>()),
+mock.module("../src/config.ts", () => ({
 	loadMcpConfig: mocks.loadMcpConfig,
 }));
 
-vi.mock("../src/server-manager.ts", () => ({
-	McpServerManager: vi.fn().mockImplementation(function (this: any) {
-		this.setDefaultRequestTimeoutMs = vi.fn();
-		this.setSamplingConfig = vi.fn();
-		this.setElicitationConfig = vi.fn();
-		this.getConnection = vi.fn();
-		this.connect = vi.fn();
-		mocks.managers.push(this);
+mock.module("../src/server-manager.ts", () => ({
+	McpServerManager: mock(() => {
+		const manager = {
+			setDefaultRequestTimeoutMs: mock(() => {}),
+			setSamplingConfig: mock(() => {}),
+			setElicitationConfig: mock(() => {}),
+			getConnection: mock(() => {}),
+			connect: mock(() => {}),
+		};
+		mocks.managers.push(manager);
+		return manager;
 	}),
 }));
 
-function context(overrides: { hasUI?: boolean; mode?: ExtensionMode } = {}): ExtensionContext {
+function context(
+	overrides: { hasUI?: boolean; mode?: ExtensionContext["mode"] } = {},
+): ExtensionContext {
 	return {
 		cwd: "/tmp/project",
 		hasUI: true,
 		mode: "tui",
-		ui: { select: vi.fn(), input: vi.fn(), notify: vi.fn() } as unknown as ExtensionUIContext,
+		ui: {
+			select: mock(() => {}),
+			input: mock(() => {}),
+			notify: mock(() => {}),
+		} as unknown as ExtensionUIContext,
 		modelRegistry: {},
 		model: undefined,
 		signal: undefined,
@@ -41,7 +48,7 @@ function context(overrides: { hasUI?: boolean; mode?: ExtensionMode } = {}): Ext
 }
 
 function extensionApi(): ExtensionAPI {
-	return { getFlag: vi.fn() } as unknown as ExtensionAPI;
+	return { getFlag: mock(() => {}) } as unknown as ExtensionAPI;
 }
 
 describe("initializeMcp elicitation config", () => {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { resolveMcpResultContent } from "../src/tool-registrar.ts";
 
 describe("resolveMcpResultContent", () => {

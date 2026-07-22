@@ -1,27 +1,30 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const mocks = vi.hoisted(() => ({
-	authenticate: vi.fn(),
-	supportsOAuth: vi.fn(),
-	lazyConnect: vi.fn(),
-	updateServerMetadata: vi.fn(),
-	updateMetadataCache: vi.fn(),
-	getFailureAgeSeconds: vi.fn(),
-	updateStatusBar: vi.fn(),
+const mocks = {
+	authenticate: mock(),
+	supportsOAuth: mock(),
+	lazyConnect: mock(),
+	updateServerMetadata: mock(),
+	updateMetadataCache: mock(),
+	getFailureAgeSeconds: mock(),
+	updateStatusBar: mock(),
 	clients: [] as any[],
 	transports: [] as any[],
-	connectImpl: vi.fn(),
-	listToolsImpl: vi.fn(),
-	listResourcesImpl: vi.fn(),
-	callToolImpl: vi.fn(),
-}));
+	connectImpl: mock(),
+	listToolsImpl: mock(),
+	listResourcesImpl: mock(),
+	callToolImpl: mock(),
+};
 
-vi.mock("../src/mcp-auth-flow.ts", () => ({
+mock.module("../src/mcp-auth-flow.ts", () => ({
 	authenticate: mocks.authenticate,
+	extractOAuthConfig: mock(() => undefined),
+	completeAuthFromInput: mock(),
+	startAuth: mock(),
 	supportsOAuth: mocks.supportsOAuth,
 }));
 
-vi.mock("../src/init.ts", () => ({
+mock.module("../src/init.ts", () => ({
 	lazyConnect: mocks.lazyConnect,
 	updateServerMetadata: mocks.updateServerMetadata,
 	updateMetadataCache: mocks.updateMetadataCache,
@@ -29,52 +32,54 @@ vi.mock("../src/init.ts", () => ({
 	updateStatusBar: mocks.updateStatusBar,
 }));
 
-vi.mock("@modelcontextprotocol/sdk/client/index.js", () => ({
-	Client: vi.fn().mockImplementation(function (this: any, info: unknown, options: unknown) {
-		this.info = info;
-		this.options = options;
-		this.setRequestHandler = vi.fn();
-		this.setNotificationHandler = vi.fn();
-		this.connect = vi.fn((transport: unknown, requestOptions: unknown) =>
-			mocks.connectImpl(transport, requestOptions),
-		);
-		this.listTools = vi.fn((params: unknown, requestOptions: unknown) =>
-			mocks.listToolsImpl(params, requestOptions),
-		);
-		this.listResources = vi.fn((params: unknown, requestOptions: unknown) =>
-			mocks.listResourcesImpl(params, requestOptions),
-		);
-		this.callTool = vi.fn((params: unknown, schema: unknown, requestOptions: unknown) =>
-			mocks.callToolImpl(params, schema, requestOptions),
-		);
-		this.close = vi.fn(async () => undefined);
-		mocks.clients.push(this);
+mock.module("@modelcontextprotocol/sdk/client/index.js", () => ({
+	Client: mock((info: unknown, options: unknown) => {
+		const client = {
+			info,
+			options,
+			setRequestHandler: mock(),
+			setNotificationHandler: mock(),
+			connect: mock((transport: unknown, requestOptions: unknown) =>
+				mocks.connectImpl(transport, requestOptions),
+			),
+			listTools: mock((params: unknown, requestOptions: unknown) =>
+				mocks.listToolsImpl(params, requestOptions),
+			),
+			listResources: mock((params: unknown, requestOptions: unknown) =>
+				mocks.listResourcesImpl(params, requestOptions),
+			),
+			callTool: mock((params: unknown, schema: unknown, requestOptions: unknown) =>
+				mocks.callToolImpl(params, schema, requestOptions),
+			),
+			close: mock(async () => undefined),
+		};
+		mocks.clients.push(client);
+		return client;
 	}),
 }));
 
-vi.mock("@modelcontextprotocol/sdk/client/stdio.js", () => ({
-	StdioClientTransport: vi.fn().mockImplementation(function (this: any, options: unknown) {
-		this.options = options;
-		this.close = vi.fn(async () => undefined);
-		mocks.transports.push(this);
+mock.module("@modelcontextprotocol/sdk/client/stdio.js", () => ({
+	StdioClientTransport: mock((options: unknown) => {
+		const transport = { options, close: mock(async () => undefined) };
+		mocks.transports.push(transport);
+		return transport;
 	}),
 }));
 
-vi.mock("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
-	StreamableHTTPClientTransport: vi.fn(),
+mock.module("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
+	StreamableHTTPClientTransport: mock(),
 }));
 
-vi.mock("@modelcontextprotocol/sdk/client/sse.js", () => ({
-	SSEClientTransport: vi.fn(),
+mock.module("@modelcontextprotocol/sdk/client/sse.js", () => ({
+	SSEClientTransport: mock(),
 }));
 
-vi.mock("../src/npx-resolver.ts", () => ({
-	resolveNpxBinary: vi.fn(async () => null),
+mock.module("../src/npx-resolver.ts", () => ({
+	resolveNpxBinary: mock(async () => null),
 }));
 
 describe("proxy auto auth", () => {
 	beforeEach(() => {
-		vi.resetModules();
 		mocks.authenticate.mockReset().mockResolvedValue("authenticated");
 		mocks.supportsOAuth.mockReset().mockReturnValue(true);
 		mocks.lazyConnect.mockReset().mockResolvedValue(false);
@@ -104,8 +109,7 @@ describe("proxy auto auth", () => {
 		};
 
 		const manager = {
-			connect: vi
-				.fn()
+			connect: mock()
 				.mockImplementationOnce(async () => {
 					current = { status: "needs-auth" };
 					return current;
@@ -114,10 +118,10 @@ describe("proxy auto auth", () => {
 					current = connected;
 					return current;
 				}),
-			close: vi.fn(async () => {
+			close: mock(async () => {
 				current = undefined;
 			}),
-			getConnection: vi.fn(() => current),
+			getConnection: mock(() => current),
 		};
 
 		const state = {
@@ -130,7 +134,7 @@ describe("proxy auto auth", () => {
 			manager,
 			toolMetadata: new Map(),
 			failureTracker: new Map(),
-			ui: { setStatus: vi.fn() },
+			ui: { setStatus: mock() },
 		} as any;
 
 		const result = await executeConnect(state, "demo");
@@ -151,9 +155,9 @@ describe("proxy auto auth", () => {
 		const { executeConnect } = await import("../src/proxy-modes.ts");
 
 		const manager = {
-			connect: vi.fn(async () => ({ status: "needs-auth" })),
-			close: vi.fn(async () => {}),
-			getConnection: vi.fn(() => ({ status: "needs-auth" })),
+			connect: mock(async () => ({ status: "needs-auth" })),
+			close: mock(async () => {}),
+			getConnection: mock(() => ({ status: "needs-auth" })),
 		};
 
 		const state = {
@@ -194,9 +198,9 @@ describe("proxy auto auth", () => {
 				},
 			},
 			manager: {
-				connect: vi.fn(async () => ({ status: "needs-auth" })),
-				close: vi.fn(async () => {}),
-				getConnection: vi.fn(() => ({ status: "needs-auth" })),
+				connect: mock(async () => ({ status: "needs-auth" })),
+				close: mock(async () => {}),
+				getConnection: mock(() => ({ status: "needs-auth" })),
 			},
 			toolMetadata: new Map(),
 			failureTracker: new Map(),
@@ -224,14 +228,14 @@ describe("proxy auto auth", () => {
 		]);
 		const connection = {
 			status: "connected",
-			client: { callTool: vi.fn().mockRejectedValue(error) },
+			client: { callTool: mock().mockRejectedValue(error) },
 		};
 		const manager = {
-			getConnection: vi.fn(() => connection),
-			handleUrlElicitationRequired: vi.fn().mockResolvedValue("accept"),
-			touch: vi.fn(),
-			incrementInFlight: vi.fn(),
-			decrementInFlight: vi.fn(),
+			getConnection: mock(() => connection),
+			handleUrlElicitationRequired: mock().mockResolvedValue("accept"),
+			touch: mock(),
+			incrementInFlight: mock(),
+			decrementInFlight: mock(),
 		};
 		const state = {
 			config: { settings: {}, mcpServers: { demo: { command: "demo" } } },
@@ -266,7 +270,7 @@ describe("proxy auto auth", () => {
 		const connected = {
 			status: "connected",
 			client: {
-				callTool: vi.fn(async () => ({
+				callTool: mock(async () => ({
 					isError: false,
 					content: [{ type: "text", text: "ok" }],
 				})),
@@ -276,18 +280,18 @@ describe("proxy auto auth", () => {
 		};
 
 		const manager = {
-			connect: vi.fn(async () => {
+			connect: mock(async () => {
 				current = connected;
 				return connected;
 			}),
-			close: vi.fn(async () => {
+			close: mock(async () => {
 				current = undefined;
 			}),
-			getConnection: vi.fn(() => current),
-			getRequestOptions: vi.fn(() => ({ timeout: 1234 })),
-			touch: vi.fn(),
-			incrementInFlight: vi.fn(),
-			decrementInFlight: vi.fn(),
+			getConnection: mock(() => current),
+			getRequestOptions: mock(() => ({ timeout: 1234 })),
+			touch: mock(),
+			incrementInFlight: mock(),
+			decrementInFlight: mock(),
 		};
 
 		const state = {
@@ -312,7 +316,7 @@ describe("proxy auto auth", () => {
 				],
 			]),
 			failureTracker: new Map(),
-			ui: { setStatus: vi.fn() },
+			ui: { setStatus: mock() },
 			completedUiSessions: [],
 		} as any;
 
@@ -353,15 +357,15 @@ describe("proxy auto auth", () => {
 		const connection = {
 			status: "connected",
 			client: {
-				callTool: vi.fn(() => new Promise<never>(() => {})),
+				callTool: mock(() => new Promise<never>(() => {})),
 			},
 		};
 		const manager = {
-			getConnection: vi.fn(() => connection),
-			getRequestOptions: vi.fn(() => requestOptions),
-			touch: vi.fn(),
-			incrementInFlight: vi.fn(),
-			decrementInFlight: vi.fn(),
+			getConnection: mock(() => connection),
+			getRequestOptions: mock(() => requestOptions),
+			touch: mock(),
+			incrementInFlight: mock(),
+			decrementInFlight: mock(),
 		};
 		const state = {
 			config: { settings: { toolPrefix: "server" }, mcpServers: { demo: { command: "demo" } } },

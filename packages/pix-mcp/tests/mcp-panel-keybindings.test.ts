@@ -1,5 +1,5 @@
+import { describe, expect, it, mock } from "bun:test";
 import { KeybindingsManager, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
-import { describe, expect, it, vi } from "vitest";
 import type { McpDiscoverySummary } from "../src/config.ts";
 import { createMcpPanel } from "../src/mcp-panel.ts";
 import { createMcpSetupPanel, type SetupPanelCallbacks } from "../src/mcp-setup-panel.ts";
@@ -32,7 +32,7 @@ function createAuthCallbacks(): McpPanelCallbacks {
 	return {
 		reconnect: async () => true,
 		canAuthenticate: () => true,
-		authenticate: vi.fn(async () => ({ ok: true })),
+		authenticate: mock(async () => ({ ok: true })),
 		getConnectionStatus: () => "needs-auth",
 		refreshCacheAfterReconnect: () => null,
 	};
@@ -66,7 +66,7 @@ function createSetupCallbacks(): SetupPanelCallbacks {
 		previewStarterProject: () => preview,
 		previewRepoPrompt: () => null,
 		adoptImports: async () => ({ added: [], path: "/tmp/x" }),
-		scaffoldProjectConfig: vi.fn(async () => ({ path: "/tmp/x" })),
+		scaffoldProjectConfig: mock(async () => ({ path: "/tmp/x" })),
 		addRepoPrompt: async () => ({ path: "/tmp/x", serverName: "repoprompt" }),
 		openPath: async () => {},
 		markSetupCompleted: () => {},

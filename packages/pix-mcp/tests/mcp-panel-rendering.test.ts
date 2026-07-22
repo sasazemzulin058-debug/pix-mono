@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 import { createMcpPanel } from "../src/mcp-panel.ts";
 import { computeServerHash, type MetadataCache } from "../src/metadata-cache.ts";
 import type { McpConfig, McpPanelCallbacks, McpPanelResult } from "../src/types.ts";
@@ -126,7 +126,7 @@ describe("mcp-panel rendering", () => {
 
 	it("keeps dirty changes and closes when Keep & Close is confirmed", () => {
 		const config = createConfig();
-		const done = vi.fn<(result: McpPanelResult) => void>();
+		const done = mock<(result: McpPanelResult) => void>();
 		const panel = createMcpPanel(
 			config,
 			createCache(config),

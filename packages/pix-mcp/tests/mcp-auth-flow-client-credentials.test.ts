@@ -1,20 +1,20 @@
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({
-	ensureCallbackServer: vi.fn(),
-	waitForCallback: vi.fn(),
-	cancelPendingCallback: vi.fn(),
-	stopCallbackServer: vi.fn(),
-	reserveCallbackServer: vi.fn(),
-	releaseCallbackServer: vi.fn(),
-	open: vi.fn(),
-	sdkAuth: vi.fn(),
-	finishAuth: vi.fn(),
-	transportClose: vi.fn(),
-}));
+const mocks = {
+	ensureCallbackServer: mock() as any,
+	waitForCallback: mock() as any,
+	cancelPendingCallback: mock() as any,
+	stopCallbackServer: mock() as any,
+	reserveCallbackServer: mock() as any,
+	releaseCallbackServer: mock() as any,
+	open: mock() as any,
+	sdkAuth: mock() as any,
+	finishAuth: mock() as any,
+	transportClose: mock() as any,
+};
 
 class MockUnauthorizedError extends Error {}
 
@@ -23,16 +23,16 @@ class MockStreamableHTTPClientTransport {
 	finishAuth = mocks.finishAuth;
 }
 
-vi.mock("@modelcontextprotocol/sdk/client/auth.js", () => ({
+mock.module("@modelcontextprotocol/sdk/client/auth.js", () => ({
 	auth: mocks.sdkAuth,
 	UnauthorizedError: MockUnauthorizedError,
 }));
 
-vi.mock("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
+mock.module("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
 	StreamableHTTPClientTransport: MockStreamableHTTPClientTransport,
 }));
 
-vi.mock("../src/mcp-callback-server.ts", () => ({
+mock.module("../src/mcp-callback-server.ts", () => ({
 	ensureCallbackServer: mocks.ensureCallbackServer,
 	waitForCallback: mocks.waitForCallback,
 	cancelPendingCallback: mocks.cancelPendingCallback,
@@ -41,7 +41,7 @@ vi.mock("../src/mcp-callback-server.ts", () => ({
 	releaseCallbackServer: mocks.releaseCallbackServer,
 }));
 
-vi.mock("open", () => ({
+mock.module("open", () => ({
 	default: mocks.open,
 }));
 
@@ -52,7 +52,6 @@ describe("mcp-auth-flow explicit auth", () => {
 	beforeEach(() => {
 		authDir = mkdtempSync(join(tmpdir(), "pi-mcp-auth-flow-"));
 		process.env.MCP_OAUTH_DIR = authDir;
-		vi.resetModules();
 		mocks.ensureCallbackServer.mockReset();
 		mocks.waitForCallback.mockReset();
 		mocks.cancelPendingCallback.mockReset();
@@ -60,9 +59,12 @@ describe("mcp-auth-flow explicit auth", () => {
 		mocks.reserveCallbackServer.mockReset();
 		mocks.releaseCallbackServer.mockReset();
 		mocks.open.mockReset();
-		mocks.sdkAuth.mockReset().mockResolvedValue("AUTHORIZED");
-		mocks.finishAuth.mockReset().mockResolvedValue(undefined);
-		mocks.transportClose.mockReset().mockResolvedValue(undefined);
+		mocks.sdkAuth.mockReset();
+		mocks.sdkAuth.mockResolvedValue("AUTHORIZED");
+		mocks.finishAuth.mockReset();
+		mocks.finishAuth.mockResolvedValue(undefined);
+		mocks.transportClose.mockReset();
+		mocks.transportClose.mockResolvedValue(undefined);
 	});
 
 	afterEach(() => {
@@ -613,8 +615,8 @@ describe("mcp-auth-flow explicit auth", () => {
 			return "REDIRECT";
 		});
 		mocks.waitForCallback.mockResolvedValueOnce("manual-code");
-		const onAuthorizationUrl = vi.fn();
-		const consoleLog = vi.spyOn(console, "log").mockImplementation(() => undefined);
+		const onAuthorizationUrl = mock();
+		const consoleLog = spyOn(console, "log").mockImplementation(() => undefined);
 		const { authenticate } = await import("../src/mcp-auth-flow.ts");
 
 		try {

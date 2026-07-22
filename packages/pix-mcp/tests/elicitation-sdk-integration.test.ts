@@ -1,6 +1,6 @@
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { fileURLToPath } from "node:url";
 import type { ExtensionMode, ExtensionUIContext } from "@earendil-works/pi-coding-agent";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDirectToolExecutor } from "../src/direct-tools.ts";
 import { isTuiMode } from "../src/init.ts";
 import { executeCall } from "../src/proxy-modes.ts";
@@ -9,8 +9,8 @@ import type { McpExtensionState } from "../src/state.ts";
 import type { DirectToolSpec, ToolMetadata } from "../src/types.ts";
 import { UiResourceHandler } from "../src/ui-resource-handler.ts";
 
-const mocks = vi.hoisted(() => ({ open: vi.fn(async () => undefined) }));
-vi.mock("open", () => ({ default: mocks.open }));
+const mocks = { open: mock(async () => undefined) };
+mock.module("open", () => ({ default: mocks.open }));
 
 const fixture = fileURLToPath(new URL("./fixtures/elicitation-server.mjs", import.meta.url));
 const definition = { command: process.execPath, args: [fixture] };
@@ -18,9 +18,9 @@ const managers: McpServerManager[] = [];
 
 function createUi(answers: string[] = []): ExtensionUIContext {
 	return {
-		select: vi.fn(async () => answers.shift()),
-		input: vi.fn(async () => "stock-pi-user"),
-		notify: vi.fn(),
+		select: mock(async () => answers.shift()),
+		input: mock(async () => "stock-pi-user"),
+		notify: mock(() => {}),
 	} as unknown as ExtensionUIContext;
 }
 

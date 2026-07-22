@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { executeCall, executeSearch } from "../src/proxy-modes.ts";
 import type { McpExtensionState } from "../src/state.ts";
 

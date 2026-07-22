@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 
 type OAuthProviderLike = {
 	redirectUrl?: string;
@@ -22,48 +22,46 @@ type HttpTransportMock = {
 	close: () => Promise<void>;
 };
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
 	clients: [] as any[],
 	httpTransports: [] as HttpTransportMock[],
-}));
+};
 
-vi.mock("@modelcontextprotocol/sdk/client/index.js", () => ({
-	Client: vi.fn().mockImplementation((info: unknown, options: unknown) => {
+mock.module("@modelcontextprotocol/sdk/client/index.js", () => ({
+	Client: mock((info: unknown, options: unknown) => {
 		const client = {
 			info,
 			options,
-			setRequestHandler: vi.fn(),
-			setNotificationHandler: vi.fn(),
-			connect: vi.fn(async () => undefined),
-			listTools: vi.fn(async () => ({ tools: [] })),
-			listResources: vi.fn(async () => ({ resources: [] })),
-			close: vi.fn(async () => undefined),
+			setRequestHandler: mock(),
+			setNotificationHandler: mock(),
+			connect: mock(async () => undefined),
+			listTools: mock(async () => ({ tools: [] })),
+			listResources: mock(async () => ({ resources: [] })),
+			close: mock(async () => undefined),
 		};
 		mocks.clients.push(client);
 		return client;
 	}),
 }));
 
-vi.mock("@modelcontextprotocol/sdk/client/stdio.js", () => ({
-	StdioClientTransport: vi.fn(),
+mock.module("@modelcontextprotocol/sdk/client/stdio.js", () => ({
+	StdioClientTransport: mock(),
 }));
 
-vi.mock("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
-	StreamableHTTPClientTransport: vi
-		.fn()
-		.mockImplementation((url: URL, options: TransportOptions) => {
-			const transport = { url, options, close: vi.fn(async () => undefined) };
-			mocks.httpTransports.push(transport);
-			return transport;
-		}),
+mock.module("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
+	StreamableHTTPClientTransport: mock((url: URL, options: TransportOptions) => {
+		const transport = { url, options, close: mock(async () => undefined) };
+		mocks.httpTransports.push(transport);
+		return transport;
+	}),
 }));
 
-vi.mock("@modelcontextprotocol/sdk/client/sse.js", () => ({
-	SSEClientTransport: vi.fn(),
+mock.module("@modelcontextprotocol/sdk/client/sse.js", () => ({
+	SSEClientTransport: mock(),
 }));
 
-vi.mock("../src/npx-resolver.ts", () => ({
-	resolveNpxBinary: vi.fn(async () => null),
+mock.module("../src/npx-resolver.ts", () => ({
+	resolveNpxBinary: mock(async () => null),
 }));
 
 describe("McpServerManager HTTP bearer auth", () => {
