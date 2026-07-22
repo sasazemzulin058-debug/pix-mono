@@ -19,7 +19,7 @@ const THEMES = [
 const THINKING_COLOR_KEYS = [
 	["thinkingOff", "dim"],
 	["thinkingMinimal", "muted"],
-	["thinkingLow", "muted"],
+	["thinkingLow", "success"],
 	["thinkingMedium", "accent"],
 	["thinkingHigh", "warning"],
 	["thinkingXhigh", "error"],

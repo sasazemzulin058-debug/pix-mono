@@ -71,7 +71,7 @@
 		"syntaxPunctuation": "punct",
 		"thinkingOff": "dim",
 		"thinkingMinimal": "muted",
-		"thinkingLow": "muted",
+		"thinkingLow": "green2",
 		"thinkingMedium": "purple",
 		"thinkingHigh": "yellow",
 		"thinkingXhigh": "red",
