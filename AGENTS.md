@@ -132,14 +132,16 @@ Types: **feat** (new capability) · **fix** (bug fix) · **refactor** (no behavi
 
 **CI** runs on every push to `main` and PRs: biome ci → tsc → bun test.
 
-**CD** is triggered by a release tag (`release-YYYYMMDD-HHMM`), never by direct push.
+**CD** is triggered by a release tag push (`release-YYYYMMDD-HHMM`), never by a direct branch push.
 
 ```bash
-# Bump version(s), commit, push, then:
+# Bump version(s), commit, push to main, wait for CI green, then:
 TAG="release-$(date +%Y%m%d-%H%M)" && git tag "$TAG" && git push origin "$TAG"
 ```
 
-The publish workflow re-runs CI, checks each `name@version` against npm, publishes only new versions (idempotent, OIDC trusted publishing — no NPM_TOKEN needed). Dry-run locally: `bun run publish:dry`.
+The Publish workflow triggers **on the tag push itself** (`on: push: tags: release-[0-9]*`). Its first step polls the Actions API and **requires a green CI run on that exact commit** before publishing — it does not re-run the suite. A tag pushed while CI is still running waits (up to ~10 min) instead of failing; a failed/cancelled CI aborts the publish. It then checks each `name@version` against npm and publishes only new versions (idempotent, OIDC trusted publishing — no NPM_TOKEN needed). Dry-run locally: `bun run publish:dry`.
+
+Because the tag is the trigger (not CI-completion), there is **no tag-push race** and no manual dispatch needed. `workflow_dispatch` remains only as a break-glass fallback that publishes from the `main` tip (still gated on that commit's CI being green).
 
 ### Agent runbook — "publish"
 
@@ -150,8 +152,9 @@ The publish workflow re-runs CI, checks each `name@version` against npm, publish
 3. **Commit + push** — confirm via `ask_user` first (shared-state push).
 4. **Dry-run** — `bun run publish:dry` — note the exact `name@version` list.
 5. **Confirm publish** — `ask_user` with the exact list. Prior approval never carries forward.
-6. **Tag + push** — creates the release tag, triggers the Publish workflow.
-7. **Verify GitHub Actions** — use `gh run list` to find the CI run for the tagged SHA, then `gh run watch <run-id> --exit-status`. After CI succeeds, find and watch the resulting Publish run. Confirm its log reports every expected `name@version` as published and ends with `0 failed`; report the Publish workflow URL and exact published versions. Red → STOP and report the failing step/log — never claim the release succeeded from the tag push alone.
+6. **Push commits + wait for CI** — push to `main`, then `gh run watch <ci-run-id> --exit-status` for the branch CI on the pushed SHA. CI must be green *before* tagging (the Publish gate requires it). Red → STOP.
+7. **Tag + push** — create and push the release tag. This directly triggers the Publish workflow; no manual dispatch. The Publish job re-confirms CI is green on the tagged commit, then publishes.
+8. **Verify GitHub Actions** — find the triggered Publish run (`gh run list --workflow Publish --limit 1`) and `gh run watch <run-id> --exit-status`. Confirm its log reports every expected `name@version` as published and ends with `0 failed`; report the Publish workflow URL and exact published versions. Red → STOP and report the failing step/log — never claim the release succeeded from the tag push alone. (If the tag push ever fails to trigger Publish, the fallback is `gh workflow run Publish --ref main`.)
 
 ---
 

@@ -1,59 +1,62 @@
 name: Publish
 
 on:
-  # Fires after CI completes on main — no duplicate quality gate.
-  # The publish job checks that a release tag points to the validated SHA.
-  workflow_run:
-    workflows: [CI]
-    branches: [main]
-    types: [completed]
-  # Manual fallback from the Actions tab.
+  # The release tag IS the release signal — no race with a separate CI-completion
+  # trigger. The job below requires a green CI run on this exact commit before
+  # publishing, so the quality gate is enforced without re-running it here.
+  push:
+    tags: ["release-[0-9]*"]
+  # Break-glass fallback from the Actions tab (operator takes responsibility).
   workflow_dispatch:
 
 jobs:
   publish:
-    # For workflow_run: only proceed when CI passed.
-    # For workflow_dispatch: always proceed (operator takes responsibility).
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # Read Actions API to query the CI run's conclusion for this commit.
+      actions: read
       # Required for npm trusted publishing (OIDC) + provenance.
       id-token: write
     steps:
       - uses: actions/checkout@v5
         with:
-          # Check out the exact SHA CI validated (not the default branch tip).
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # The tag points at the commit to release; github.sha is that commit.
+          ref: ${{ github.sha }}
           fetch-depth: 0
-          # Fetch tags so `git tag --points-at HEAD` can find the release-* tag
-          # that triggered this workflow. Without this, the targeted SHA-only
-          # refspec above omits refs/tags/* and the tag check below returns empty,
-          # silently skipping the publish.
-          fetch-tags: true
 
-      # Check whether a release tag points at this commit.
-      # If none found, skip publish silently — this is a plain main push, not a release.
-      - name: Check for release tag on this commit
-        id: tag
+      # Gate on CI: require a completed, successful CI run on THIS commit.
+      # Polls (does not re-run the suite) so a tag pushed while CI is still
+      # running waits instead of failing. A failed/cancelled CI aborts publish.
+      - name: Require green CI on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          TAG=$(git tag --points-at HEAD | grep -E '^release-[0-9]{8}-[0-9]{4}$' | head -1)
-          echo "value=$TAG" >> "$GITHUB_OUTPUT"
-          if [ -z "$TAG" ]; then
-            echo "No release tag on this commit — skipping publish."
-          else
-            echo "Release tag found: $TAG"
-          fi
+          for i in $(seq 1 40); do   # ~10 min ceiling (40 × 15s)
+            CONCLUSION=$(gh run list --repo "$GITHUB_REPOSITORY" \
+              --commit "$GITHUB_SHA" --workflow CI \
+              --json status,conclusion \
+              --jq 'map(select(.status=="completed"))[0].conclusion // ""')
+            case "$CONCLUSION" in
+              success)
+                echo "CI is green on $GITHUB_SHA — proceeding."
+                exit 0 ;;
+              failure|cancelled|timed_out|startup_failure)
+                echo "CI concluded '$CONCLUSION' on $GITHUB_SHA — aborting publish."
+                exit 1 ;;
+              *)
+                echo "Waiting for CI to complete on $GITHUB_SHA… ($i/40)"
+                sleep 15 ;;
+            esac
+          done
+          echo "Timed out waiting for CI on $GITHUB_SHA — aborting publish."
+          exit 1
 
       - uses: oven-sh/setup-bun@v2
-        if: steps.tag.outputs.value != ''
         with:
           bun-version: latest
 
       - uses: actions/setup-node@v5
-        if: steps.tag.outputs.value != ''
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
@@ -63,20 +66,17 @@ jobs:
       # installations on GitHub runners (missing `sigstore` during --provenance).
 
       - name: Install dependencies
-        if: steps.tag.outputs.value != ''
         run: bun install --frozen-lockfile
 
       # Pre-publish guard: fail fast if any changed package forgot to
       # bump its version (already published to npm at that version).
       - name: Check versions not already on npm
-        if: steps.tag.outputs.value != ''
         run: bun scripts/check-versions.ts
 
       # Publishes every package whose version is not yet on npm (idempotent).
       # Authentication is via OIDC trusted publishing (no NPM_TOKEN); provenance
       # is attached automatically.
       - name: Publish changed packages to npm
-        if: steps.tag.outputs.value != ''
         run: bun run publish:all
         env:
           NPM_CONFIG_PROVENANCE: "true"
