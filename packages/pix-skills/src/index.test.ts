@@ -11,6 +11,7 @@ import registerSkills, {
 	formatCollapsedSkillResult,
 	formatExpandedSkillResult,
 	formatRemoteSkillSearch,
+	formatRemoteSkillSearchSummary,
 	formatSkillCallLabel,
 	formatSkillList,
 	formatSkillSummary,
@@ -75,17 +76,37 @@ describe("formatSkillList", () => {
 });
 
 describe("formatRemoteSkillSearch", () => {
-	it("shows explicit source and name arguments for a second fetch call", () => {
-		expect(
-			formatRemoteSkillSearch("hallmark", [
-				{
-					name: "hallmark",
-					slug: "nutlope/hallmark/hallmark",
-					source: "nutlope/hallmark",
-					installs: 24_849,
-				},
-			]),
-		).toContain('fetch with source="nutlope/hallmark" name="hallmark"');
+	const results = [
+		{
+			name: "hallmark",
+			slug: "nutlope/hallmark/hallmark",
+			source: "nutlope/hallmark",
+			installs: 24_849,
+		},
+		{
+			name: "frontend-design",
+			slug: "anthropics/skills/frontend-design",
+			source: "anthropics/skills",
+			installs: 696_500,
+		},
+	];
+
+	it("numbers matches by descending install count without a loading hint", () => {
+		const output = formatRemoteSkillSearch("design", results);
+		expect(output).toContain('skills.sh matches for "design" (2, installs descending):');
+		expect(output).toContain("1. frontend-design · anthropics/skills · 696.5K installs");
+		expect(output).toContain("2. hallmark · nutlope/hallmark · 24.8K installs");
+		expect(output).not.toContain("Load one with");
+		expect(output).not.toContain("fetch with source=");
+	});
+
+	it("renders a compact install-ranked table for the TUI", () => {
+		const output = formatRemoteSkillSearchSummary("design", results, tagTheme);
+		expect(output).toContain("[accent]<b>skills.sh</b>[/]");
+		expect(output).toContain("installs descending");
+		expect(output).toContain("[dim] 1[/]  [accent]<b>frontend-design</b>[/]");
+		expect(output).toContain("[muted]anthropics/skills[/]  [dim]696.5K installs[/]");
+		expect(output).not.toContain("Load with the selected source");
 	});
 });
 
@@ -114,9 +135,9 @@ describe("formatSkillCallLabel", () => {
 describe("formatCollapsedSkillResult", () => {
 	it("summarizes each successful result distinctly", () => {
 		expect(formatCollapsedSkillResult({ mode: "list", count: 28 })).toBe("28 skills");
-		expect(formatCollapsedSkillResult({ mode: "search", query: "design", count: 10 })).toBe(
-			"10 remote matches",
-		);
+		expect(
+			formatCollapsedSkillResult({ mode: "search", query: "design", count: 10, results: [] }),
+		).toBe("10 matches for “design”");
 		expect(formatCollapsedSkillResult({ mode: "description", name: "test" })).toBe(
 			"test · description",
 		);
@@ -153,6 +174,45 @@ describe("skill renderer", () => {
 			on() {},
 		} as never);
 		expect(registered.renderShell).toBe("self");
+	});
+
+	it("collapses search results into the shared tool row style", () => {
+		let registered: Record<string, unknown> = {};
+		registerSkills({
+			registerTool(tool: unknown) {
+				registered = tool as Record<string, unknown>;
+			},
+			on() {},
+		} as never);
+		const renderResult = registered.renderResult as (...args: unknown[]) => {
+			render: (width: number) => string[];
+		};
+		const rendered = renderResult(
+			{
+				content: [{ type: "text", text: "search results" }],
+				details: {
+					mode: "search",
+					query: "coding agent",
+					count: 9,
+					results: [],
+				},
+			},
+			{},
+			tagTheme,
+			{
+				expanded: false,
+				isError: false,
+				state: { collapsed: true },
+				invalidate: () => {},
+			},
+		)
+			.render(120)
+			.join("\n");
+
+		expect(rendered).toContain("<b>read_skills</b>");
+		expect(rendered).toContain("“coding agent”");
+		expect(rendered).toContain("9 matches");
+		expect(rendered).not.toContain("search results");
 	});
 
 	it("restores the normal result when an elapsed card is expanded", () => {
