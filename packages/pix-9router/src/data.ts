@@ -41,6 +41,12 @@ export interface RouterModel {
 	max_tokens?: number;
 	maxTokens?: number;
 	owned_by?: string;
+	/** 9router v1 API nests these inside capabilities */
+	capabilities?: {
+		contextWindow?: number;
+		maxOutput?: number;
+		[key: string]: unknown;
+	};
 }
 
 interface RouterModelsResponse {
