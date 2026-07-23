@@ -73,11 +73,18 @@ export interface UiResourceCsp {
 	baseUriDomains?: string[];
 }
 
+/**
+ * MCP-UI permission members are presence-only flags whose value is an empty
+ * options object per the spec. `Record<PropertyKey, never>` models "an object
+ * with no usable properties" — the exact serialized shape is `{}`.
+ */
+export type UiResourcePermissionFlag = Record<PropertyKey, never>;
+
 export interface UiResourcePermissions {
-	camera?: {};
-	microphone?: {};
-	geolocation?: {};
-	clipboardWrite?: {};
+	camera?: UiResourcePermissionFlag;
+	microphone?: UiResourcePermissionFlag;
+	geolocation?: UiResourcePermissionFlag;
+	clipboardWrite?: UiResourcePermissionFlag;
 }
 
 export interface UiToolInfo {

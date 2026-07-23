@@ -127,7 +127,8 @@ export function formatAuthRequiredMessage(
 	defaultMessage: string,
 ): string {
 	const template = config.settings?.authRequiredMessage;
-	return template ? template.replaceAll("${server}", serverName) : defaultMessage;
+	// `${server}` is the documented placeholder syntax for authRequiredMessage.
+	return template ? template.replaceAll(`\${server}`, serverName) : defaultMessage;
 }
 
 /**

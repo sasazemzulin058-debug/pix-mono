@@ -85,7 +85,7 @@ describe("McpServerManager HTTP bearer auth", () => {
 		}
 	});
 
-	it("interpolates ${VAR} bearerToken placeholders", async () => {
+	it(`interpolates \${VAR} bearerToken placeholders`, async () => {
 		const { McpServerManager } = await import("../src/server-manager.ts");
 		process.env.MCP_TEST_BEARER_TOKEN = "placeholder-token";
 
@@ -93,7 +93,7 @@ describe("McpServerManager HTTP bearer auth", () => {
 		await manager.connect("remote", {
 			url: "https://example.test/mcp",
 			auth: "bearer",
-			bearerToken: "${MCP_TEST_BEARER_TOKEN}",
+			bearerToken: `\${MCP_TEST_BEARER_TOKEN}`,
 		});
 
 		expect(mocks.httpTransports.at(-1)!.options.requestInit?.headers?.Authorization).toBe(

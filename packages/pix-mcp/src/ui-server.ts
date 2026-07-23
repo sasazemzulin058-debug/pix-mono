@@ -228,90 +228,245 @@ export async function startUiServer(options: UiServerOptions): Promise<UiServerH
 		options.onComplete?.(reason);
 	};
 
+	// Route handlers share the closure above (sessionToken, options, pushEvent, …).
+	// Splitting them keeps each function small and the dispatcher trivial.
+	const handleGetRequest = async (
+		url: URL,
+		req: IncomingMessage,
+		res: ServerResponse,
+	): Promise<boolean> => {
+		if (url.pathname === "/") {
+			if (!validateTokenQuery(url, sessionToken, res)) return true;
+			touchHeartbeat();
+			const html = buildHostHtmlTemplate({
+				sessionToken,
+				serverName: options.serverName,
+				toolName: options.toolName,
+				toolArgs: options.toolArgs,
+				resource: options.resource,
+				allowAttribute: buildAllowAttribute(options.resource.meta.permissions),
+				requireToolConsent: options.consentManager.requiresPrompt(options.serverName),
+				cacheToolConsent: options.consentManager.shouldCacheConsent(),
+				hostContext,
+			});
+			res.writeHead(200, {
+				"Content-Type": "text/html; charset=utf-8",
+				"Cache-Control": "no-store",
+			});
+			res.end(html);
+			return true;
+		}
+
+		if (url.pathname === "/events") {
+			if (!validateTokenQuery(url, sessionToken, res)) return true;
+			touchHeartbeat();
+			log.debug("SSE client connected", { clientCount: sseClients.size + 1 });
+			res.writeHead(200, {
+				"Content-Type": "text/event-stream",
+				"Cache-Control": "no-cache, no-transform",
+				Connection: "keep-alive",
+				"X-Accel-Buffering": "no",
+			});
+			res.write(": connected\n\n");
+			sseClients.add(res);
+			replayEvents(res, req.headers["last-event-id"] ? String(req.headers["last-event-id"]) : null);
+			req.on("close", () => {
+				sseClients.delete(res);
+			});
+			return true;
+		}
+
+		if (url.pathname === "/health") {
+			if (!validateTokenQuery(url, sessionToken, res)) return true;
+			sendJson(res, 200, { ok: true, result: { healthy: true } });
+			return true;
+		}
+
+		if (url.pathname === "/ui-app") {
+			if (!validateTokenQuery(url, sessionToken, res)) return true;
+			touchHeartbeat();
+			// Serve the MCP app's UI HTML directly (avoids blob URL security issues).
+			// Apply CSP meta tag if specified in resource metadata.
+			const cspContent = buildCspMetaContent(options.resource.meta.csp);
+			const appHtml = applyCspMeta(options.resource.html, cspContent);
+			res.writeHead(200, {
+				"Content-Type": "text/html; charset=utf-8",
+				"Cache-Control": "no-store",
+			});
+			res.end(appHtml);
+			return true;
+		}
+
+		if (url.pathname === "/app-bridge.bundle.js") {
+			// Serve the pre-bundled AppBridge module.
+			const bundlePath = path.join(import.meta.dirname, "app-bridge.bundle.js");
+			try {
+				const content = await fs.readFile(bundlePath, "utf-8");
+				res.writeHead(200, {
+					"Content-Type": "application/javascript",
+					"Cache-Control": "public, max-age=31536000",
+				});
+				res.end(content);
+			} catch {
+				sendJson(res, 500, { ok: false, error: "Bundle not found" });
+			}
+			return true;
+		}
+
+		return false;
+	};
+
+	const handleToolsCall = async (params: unknown, res: ServerResponse): Promise<void> => {
+		options.consentManager.ensureApproved(options.serverName);
+		const callParams = params as CallToolRequest["params"];
+		if (!callParams || typeof callParams.name !== "string" || !callParams.name.trim()) {
+			sendJson(res, 400, { ok: false, error: "Invalid tools/call params" });
+			return;
+		}
+
+		const connection = options.manager.getConnection(options.serverName);
+		if (connection?.status !== "connected") {
+			sendJson(res, 503, {
+				ok: false,
+				error: `Server "${options.serverName}" is not connected`,
+			});
+			return;
+		}
+
+		try {
+			options.manager.touch(options.serverName);
+			options.manager.incrementInFlight(options.serverName);
+			const result = await connection.client.callTool(
+				{
+					name: callParams.name,
+					arguments:
+						callParams.arguments &&
+						typeof callParams.arguments === "object" &&
+						!Array.isArray(callParams.arguments)
+							? callParams.arguments
+							: {},
+				},
+				undefined,
+				options.manager.getRequestOptions?.(options.serverName),
+			);
+			sendJson(res, 200, { ok: true, result });
+		} finally {
+			options.manager.decrementInFlight(options.serverName);
+			options.manager.touch(options.serverName);
+		}
+	};
+
+	const handleConsent = (params: unknown, res: ServerResponse): void => {
+		const approved = !!(params as { approved?: boolean }).approved;
+		options.consentManager.registerDecision(options.serverName, approved);
+		sendJson(res, 200, { ok: true, result: { approved } });
+	};
+
+	const recordUiMessage = (msgParams: UiMessageParams): void => {
+		const promptText = extractUiPromptText(msgParams);
+		// Track messages by type (order: prompt → intent → notify).
+		// Must match the order in index.ts onMessage handler.
+		if (promptText) {
+			sessionMessages.prompts.push(promptText);
+			log.debug("UI prompt received", { prompt: promptText.slice(0, 100) });
+			return;
+		}
+		if (msgParams.type === "intent" || msgParams.intent) {
+			const intentName = msgParams.intent ?? "";
+			if (intentName) {
+				sessionMessages.intents.push({ intent: intentName, params: msgParams.params });
+				log.debug("UI intent received", { intent: intentName });
+			}
+			return;
+		}
+		if (msgParams.type === "notify" || msgParams.message) {
+			const notifyText = msgParams.message ?? "";
+			if (notifyText) {
+				sessionMessages.notifications.push(notifyText);
+				log.debug("UI notification", { message: notifyText.slice(0, 100) });
+			}
+		}
+	};
+
+	const handleUiMessage = async (params: unknown, res: ServerResponse): Promise<void> => {
+		const msgParams = params as UiMessageParams;
+		recordUiMessage(msgParams);
+		await options.onMessage?.(msgParams);
+		sendJson(res, 200, { ok: true, result: {} });
+	};
+
+	const handleUiContext = async (params: unknown, res: ServerResponse): Promise<void> => {
+		const ctxParams = params as UiModelContextParams;
+		log.debug("UI context update", { hasContent: !!ctxParams.content });
+		await options.onContextUpdate?.(ctxParams);
+		sendJson(res, 200, { ok: true, result: {} });
+	};
+
+	const handleOpenLink = (params: unknown, res: ServerResponse): void => {
+		const openParams = params as { url?: string };
+		if (!openParams?.url || typeof openParams.url !== "string") {
+			sendJson(res, 400, { ok: false, error: "Invalid open-link params" });
+			return;
+		}
+		let result: UiOpenLinkResult = {};
+		try {
+			new URL(openParams.url);
+		} catch {
+			result = { isError: true };
+		}
+		sendJson(res, 200, { ok: true, result });
+	};
+
+	const handleRequestDisplayMode = (params: unknown, res: ServerResponse): void => {
+		const displayParams = params as UiDisplayModeRequest;
+		const requested = displayParams?.mode;
+		const available = hostContext.availableDisplayModes ?? ["inline"];
+		if (requested && available.includes(requested)) {
+			currentDisplayMode = requested;
+		}
+		hostContext.displayMode = currentDisplayMode;
+		pushEvent("host-context", { displayMode: currentDisplayMode });
+		const result: UiDisplayModeResult = { mode: currentDisplayMode };
+		sendJson(res, 200, { ok: true, result });
+	};
+
+	const handleComplete = (params: unknown, res: ServerResponse): void => {
+		const reason =
+			typeof (params as { reason?: string }).reason === "string"
+				? (params as { reason?: string }).reason!
+				: "done";
+		markCompleted(reason);
+		sendJson(res, 200, { ok: true, result: {} });
+		setTimeout(() => {
+			try {
+				server.close();
+			} catch {}
+			closeSse();
+		}, 20).unref();
+	};
+
+	const postRoutes: Record<string, (params: unknown, res: ServerResponse) => Promise<void> | void> =
+		{
+			"/proxy/tools/call": handleToolsCall,
+			"/proxy/ui/consent": handleConsent,
+			"/proxy/ui/message": handleUiMessage,
+			"/proxy/ui/context": handleUiContext,
+			"/proxy/ui/open-link": handleOpenLink,
+			"/proxy/ui/download-file": (_params, res) =>
+				sendJson(res, 200, { ok: true, result: { isError: true } }),
+			"/proxy/ui/request-display-mode": handleRequestDisplayMode,
+			"/proxy/ui/heartbeat": (_params, res) => sendJson(res, 200, { ok: true, result: {} }),
+			"/proxy/ui/complete": handleComplete,
+		};
+
 	const server = http.createServer(async (req, res) => {
 		try {
 			const method = req.method || "GET";
 			const url = new URL(req.url || "/", `http://${req.headers.host || "127.0.0.1"}`);
 
-			if (method === "GET" && url.pathname === "/") {
-				if (!validateTokenQuery(url, sessionToken, res)) return;
-				touchHeartbeat();
-
-				const html = buildHostHtmlTemplate({
-					sessionToken,
-					serverName: options.serverName,
-					toolName: options.toolName,
-					toolArgs: options.toolArgs,
-					resource: options.resource,
-					allowAttribute: buildAllowAttribute(options.resource.meta.permissions),
-					requireToolConsent: options.consentManager.requiresPrompt(options.serverName),
-					cacheToolConsent: options.consentManager.shouldCacheConsent(),
-					hostContext,
-				});
-
-				res.writeHead(200, {
-					"Content-Type": "text/html; charset=utf-8",
-					"Cache-Control": "no-store",
-				});
-				res.end(html);
-				return;
-			}
-
-			if (method === "GET" && url.pathname === "/events") {
-				if (!validateTokenQuery(url, sessionToken, res)) return;
-				touchHeartbeat();
-				log.debug("SSE client connected", { clientCount: sseClients.size + 1 });
-				res.writeHead(200, {
-					"Content-Type": "text/event-stream",
-					"Cache-Control": "no-cache, no-transform",
-					Connection: "keep-alive",
-					"X-Accel-Buffering": "no",
-				});
-				res.write(": connected\n\n");
-				sseClients.add(res);
-				replayEvents(
-					res,
-					req.headers["last-event-id"] ? String(req.headers["last-event-id"]) : null,
-				);
-				req.on("close", () => {
-					sseClients.delete(res);
-				});
-				return;
-			}
-
-			if (method === "GET" && url.pathname === "/health") {
-				if (!validateTokenQuery(url, sessionToken, res)) return;
-				sendJson(res, 200, { ok: true, result: { healthy: true } });
-				return;
-			}
-
-			if (method === "GET" && url.pathname === "/ui-app") {
-				if (!validateTokenQuery(url, sessionToken, res)) return;
-				touchHeartbeat();
-				// Serve the MCP app's UI HTML directly (avoids blob URL security issues)
-				// Apply CSP meta tag if specified in resource metadata
-				const cspContent = buildCspMetaContent(options.resource.meta.csp);
-				const appHtml = applyCspMeta(options.resource.html, cspContent);
-				res.writeHead(200, {
-					"Content-Type": "text/html; charset=utf-8",
-					"Cache-Control": "no-store",
-				});
-				res.end(appHtml);
-				return;
-			}
-
-			if (method === "GET" && url.pathname === "/app-bridge.bundle.js") {
-				// Serve the pre-bundled AppBridge module
-				const bundlePath = path.join(import.meta.dirname, "app-bridge.bundle.js");
-				try {
-					const content = await fs.readFile(bundlePath, "utf-8");
-					res.writeHead(200, {
-						"Content-Type": "application/javascript",
-						"Cache-Control": "public, max-age=31536000",
-					});
-					res.end(content);
-				} catch {
-					sendJson(res, 500, { ok: false, error: "Bundle not found" });
+			if (method === "GET") {
+				if (!(await handleGetRequest(url, req, res))) {
+					sendJson(res, 404, { ok: false, error: "Not found" });
 				}
 				return;
 			}
@@ -327,149 +482,11 @@ export async function startUiServer(options: UiServerOptions): Promise<UiServerH
 			const params = body.params ?? {};
 			touchHeartbeat();
 
-			if (url.pathname === "/proxy/tools/call") {
-				options.consentManager.ensureApproved(options.serverName);
-				const callParams = params as CallToolRequest["params"];
-				if (!callParams || typeof callParams.name !== "string" || !callParams.name.trim()) {
-					sendJson(res, 400, { ok: false, error: "Invalid tools/call params" });
-					return;
-				}
-
-				const connection = options.manager.getConnection(options.serverName);
-				if (connection?.status !== "connected") {
-					sendJson(res, 503, {
-						ok: false,
-						error: `Server "${options.serverName}" is not connected`,
-					});
-					return;
-				}
-
-				try {
-					options.manager.touch(options.serverName);
-					options.manager.incrementInFlight(options.serverName);
-					const result = await connection.client.callTool(
-						{
-							name: callParams.name,
-							arguments:
-								callParams.arguments &&
-								typeof callParams.arguments === "object" &&
-								!Array.isArray(callParams.arguments)
-									? callParams.arguments
-									: {},
-						},
-						undefined,
-						options.manager.getRequestOptions?.(options.serverName),
-					);
-					sendJson(res, 200, { ok: true, result });
-				} finally {
-					options.manager.decrementInFlight(options.serverName);
-					options.manager.touch(options.serverName);
-				}
+			const route = postRoutes[url.pathname];
+			if (route) {
+				await route(params, res);
 				return;
 			}
-
-			if (url.pathname === "/proxy/ui/consent") {
-				const approved = !!(params as { approved?: boolean }).approved;
-				options.consentManager.registerDecision(options.serverName, approved);
-				sendJson(res, 200, { ok: true, result: { approved } });
-				return;
-			}
-
-			if (url.pathname === "/proxy/ui/message") {
-				const msgParams = params as UiMessageParams;
-				const promptText = extractUiPromptText(msgParams);
-
-				// Track messages by type (order: prompt → intent → notify)
-				// Must match the order in index.ts onMessage handler
-				if (promptText) {
-					sessionMessages.prompts.push(promptText);
-					log.debug("UI prompt received", { prompt: promptText.slice(0, 100) });
-				} else if (msgParams.type === "intent" || msgParams.intent) {
-					const intentName = msgParams.intent ?? "";
-					if (intentName) {
-						sessionMessages.intents.push({
-							intent: intentName,
-							params: msgParams.params,
-						});
-						log.debug("UI intent received", { intent: intentName });
-					}
-				} else if (msgParams.type === "notify" || msgParams.message) {
-					const notifyText = msgParams.message ?? "";
-					if (notifyText) {
-						sessionMessages.notifications.push(notifyText);
-						log.debug("UI notification", { message: notifyText.slice(0, 100) });
-					}
-				}
-
-				await options.onMessage?.(msgParams);
-				sendJson(res, 200, { ok: true, result: {} });
-				return;
-			}
-
-			if (url.pathname === "/proxy/ui/context") {
-				const ctxParams = params as UiModelContextParams;
-				log.debug("UI context update", { hasContent: !!ctxParams.content });
-				await options.onContextUpdate?.(ctxParams);
-				sendJson(res, 200, { ok: true, result: {} });
-				return;
-			}
-
-			if (url.pathname === "/proxy/ui/open-link") {
-				const openParams = params as { url?: string };
-				if (!openParams?.url || typeof openParams.url !== "string") {
-					sendJson(res, 400, { ok: false, error: "Invalid open-link params" });
-					return;
-				}
-				let result: UiOpenLinkResult = {};
-				try {
-					new URL(openParams.url);
-				} catch {
-					result = { isError: true };
-				}
-				sendJson(res, 200, { ok: true, result });
-				return;
-			}
-
-			if (url.pathname === "/proxy/ui/download-file") {
-				sendJson(res, 200, { ok: true, result: { isError: true } });
-				return;
-			}
-
-			if (url.pathname === "/proxy/ui/request-display-mode") {
-				const displayParams = params as UiDisplayModeRequest;
-				const requested = displayParams?.mode;
-				const available = hostContext.availableDisplayModes ?? ["inline"];
-				if (requested && available.includes(requested)) {
-					currentDisplayMode = requested;
-				}
-				hostContext.displayMode = currentDisplayMode;
-				pushEvent("host-context", { displayMode: currentDisplayMode });
-				const result: UiDisplayModeResult = { mode: currentDisplayMode };
-				sendJson(res, 200, { ok: true, result });
-				return;
-			}
-
-			if (url.pathname === "/proxy/ui/heartbeat") {
-				sendJson(res, 200, { ok: true, result: {} });
-				return;
-			}
-
-			if (url.pathname === "/proxy/ui/complete") {
-				const reason =
-					typeof (params as { reason?: string }).reason === "string"
-						? (params as { reason?: string }).reason!
-						: "done";
-				markCompleted(reason);
-				sendJson(res, 200, { ok: true, result: {} });
-				setTimeout(() => {
-					try {
-						server.close();
-					} catch {}
-					closeSse();
-				}, 20).unref();
-				return;
-			}
-
 			sendJson(res, 404, { ok: false, error: "Not found" });
 		} catch (error) {
 			const wrapped = wrapError(error, { server: options.serverName, tool: options.toolName });

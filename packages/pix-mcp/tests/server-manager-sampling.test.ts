@@ -229,7 +229,7 @@ describe("McpServerManager sampling", () => {
 		await envManager.connect("env-cwd", {
 			command: "node",
 			args: ["server.js"],
-			cwd: "${MCP_TEST_CWD}/nested",
+			cwd: `\${MCP_TEST_CWD}/nested`,
 		});
 
 		const homeManager = new McpServerManager();

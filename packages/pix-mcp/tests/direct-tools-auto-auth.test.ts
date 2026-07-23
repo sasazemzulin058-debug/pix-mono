@@ -254,7 +254,7 @@ describe("direct tools auto auth", () => {
 			config: {
 				settings: {
 					autoAuth: true,
-					authRequiredMessage: "Reconnect ${server} from the host app.",
+					authRequiredMessage: `Reconnect \${server} from the host app.`,
 				},
 				mcpServers: {
 					demo: { url: "https://api.example.com/mcp", auth: "oauth" },

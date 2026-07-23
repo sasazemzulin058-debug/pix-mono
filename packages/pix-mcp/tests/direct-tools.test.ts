@@ -102,26 +102,26 @@ describe("buildProxyDescription", () => {
 describe("metadata cache hashing", () => {
 	it("hashes interpolated cwd", () => {
 		process.env.MCP_HASH_CWD = "/tmp/mcp-one";
-		const first = computeServerHash({ command: "node", cwd: "${MCP_HASH_CWD}/server" });
+		const first = computeServerHash({ command: "node", cwd: `\${MCP_HASH_CWD}/server` });
 
 		process.env.MCP_HASH_CWD = "/tmp/mcp-two";
-		const second = computeServerHash({ command: "node", cwd: "${MCP_HASH_CWD}/server" });
+		const second = computeServerHash({ command: "node", cwd: `\${MCP_HASH_CWD}/server` });
 
 		expect(first).not.toBe(second);
-		expect(computeServerHash({ command: "node", cwd: "${MCP_HASH_CWD}/server" })).toBe(
+		expect(computeServerHash({ command: "node", cwd: `\${MCP_HASH_CWD}/server` })).toBe(
 			computeServerHash({ command: "node", cwd: "/tmp/mcp-two/server" }),
 		);
 	});
 
 	it("hashes interpolated env values", () => {
 		process.env.MCP_HASH_ENV = "/tmp/data-one";
-		const first = computeServerHash({ command: "node", env: { DATA_DIR: "${MCP_HASH_ENV}" } });
+		const first = computeServerHash({ command: "node", env: { DATA_DIR: `\${MCP_HASH_ENV}` } });
 
 		process.env.MCP_HASH_ENV = "/tmp/data-two";
-		const second = computeServerHash({ command: "node", env: { DATA_DIR: "${MCP_HASH_ENV}" } });
+		const second = computeServerHash({ command: "node", env: { DATA_DIR: `\${MCP_HASH_ENV}` } });
 
 		expect(first).not.toBe(second);
-		expect(computeServerHash({ command: "node", env: { DATA_DIR: "${MCP_HASH_ENV}" } })).toBe(
+		expect(computeServerHash({ command: "node", env: { DATA_DIR: `\${MCP_HASH_ENV}` } })).toBe(
 			computeServerHash({ command: "node", env: { DATA_DIR: "/tmp/data-two" } }),
 		);
 	});
@@ -193,14 +193,14 @@ describe("metadata cache hashing", () => {
 		const first = computeServerHash({
 			url: "https://example.test/mcp",
 			auth: "bearer",
-			bearerToken: "${MCP_HASH_TOKEN}",
+			bearerToken: `\${MCP_HASH_TOKEN}`,
 		});
 
 		process.env.MCP_HASH_TOKEN = "token-two";
 		const second = computeServerHash({
 			url: "https://example.test/mcp",
 			auth: "bearer",
-			bearerToken: "${MCP_HASH_TOKEN}",
+			bearerToken: `\${MCP_HASH_TOKEN}`,
 		});
 
 		expect(first).not.toBe(second);
@@ -223,7 +223,7 @@ describe("metadata cache hashing", () => {
 		const definition = {
 			url: "https://example.test/mcp",
 			auth: "bearer" as const,
-			bearerToken: "${MCP_HASH_TOKEN}",
+			bearerToken: `\${MCP_HASH_TOKEN}`,
 		};
 		process.env.MCP_HASH_TOKEN = "token-one";
 		const entry = {
