@@ -46,13 +46,20 @@ function getContextWindow(model: RouterModel, devModel?: ModelsDevModel): number
 	return (
 		model.context_window ||
 		model.contextWindow ||
+		model.capabilities?.contextWindow ||
 		devModel?.limit?.context ||
 		DEFAULT_CONTEXT_WINDOW
 	);
 }
 
 function getMaxTokens(model: RouterModel, devModel?: ModelsDevModel): number {
-	return model.max_tokens || model.maxTokens || devModel?.limit?.output || DEFAULT_MAX_TOKENS;
+	return (
+		model.max_tokens ||
+		model.maxTokens ||
+		model.capabilities?.maxOutput ||
+		devModel?.limit?.output ||
+		DEFAULT_MAX_TOKENS
+	);
 }
 
 function getReasoning(model: RouterModel, devModel?: ModelsDevModel): boolean {
