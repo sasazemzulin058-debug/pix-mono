@@ -6,8 +6,25 @@ Pi coding agent extension — skill loader tool + skills bundle.
 
 | Resource | Type | Description |
 |---|---|---|
-| `read_skills` | tool | Browse skills, read references, and copy bundled resources. No args → list all. `name` only → description. `name + full=true` → instructions. `name + resource` → read reference. Add `output` → copy raw file into project. |
+| `read_skills` | tool | Browse local skills, search Skills.sh, explicitly fetch/cache a selected public GitHub skill, read references, and copy bundled resources. |
 | `skills/` | skills | 27 bundled skills (off-context by default — discovered on demand via `read_skills`) |
+
+## New: Skills.sh search and remote skill cache
+
+`read_skills` can discover skills from [Skills.sh](https://skills.sh/) and cache a selected skill from its public GitHub repository. Discovery and loading are intentionally separate:
+
+```text
+# 1. Search only—nothing is downloaded or loaded
+read_skills(search="hallmark")
+
+# 2. Review the results, then explicitly fetch and load one
+read_skills(source="nutlope/hallmark", name="hallmark", full=true)
+
+# 3. Optionally update an already-cached skill
+read_skills(source="nutlope/hallmark", name="hallmark", full=true, refresh=true)
+```
+
+Remote skills are cached under `~/.cache/pi/skills.sh/` (or `$XDG_CACHE_HOME/pi/skills.sh/` when configured). A missing local skill is never fetched automatically, and search results never trigger a download. See [Remote skill security](#remote-skill-security) for the trust boundaries.
 
 ## How it works
 
@@ -22,6 +39,13 @@ Discovery and loading go through the `read_skills` tool instead:
 - `read_skills(name=<skill>, full=true)` — loads the full procedure into context
 - `read_skills(name=<skill>, resource=references/<path>)` — reads a UTF-8 reference into context
 - `read_skills(name=<skill>, resource=<path>, output=<path>)` — copies a reference, script, or asset into the current project
+- `read_skills(search=<query>)` — searches Skills.sh without loading anything
+- `read_skills(source=<owner/repo>, name=<skill>, full=true)` — explicitly fetches, caches, and loads the selected public GitHub skill
+- add `refresh=true` to re-fetch a remote bundle instead of using the cache
+
+### Remote skill security
+
+Remote loading deliberately uses two calls: search results are informational and never auto-loaded. A selected bundle is fetched only from a validated public GitHub `owner/repo`, matched by its `SKILL.md` frontmatter name, bounded by file/byte limits, and cached under `~/.cache/pi/skills.sh/` (or `$XDG_CACHE_HOME/pi/skills.sh/`). Only `SKILL.md` and conventional `references/`, `scripts/`, and `assets/` files are retained. Remote instructions are marked as untrusted and remain subordinate to system, developer, and user instructions. Remote command interpolation is disabled, and scripts and assets are never executed by `read_skills`.
 
 A skill can opt back into passive prompt injection by **removing** the `disable-model-invocation: true`
 line (or setting it to `false`) — then pi auto-loads its description on description match. The bundled
@@ -197,6 +221,15 @@ read_skills(name="commit")
 
 # Agent loads full commit procedure
 read_skills(name="commit", full=true)
+
+# Search Skills.sh (does not load a result)
+read_skills(search="anti-slop design")
+
+# Explicitly fetch/cache one selected result, then load it
+read_skills(source="nutlope/hallmark", name="hallmark", full=true)
+
+# Re-fetch the selected remote skill
+read_skills(source="nutlope/hallmark", name="hallmark", full=true, refresh=true)
 
 # Read a UTF-8 reference into context
 read_skills(name="docx", resource="references/compatibility.md")

@@ -12,6 +12,7 @@ import registerSkills, {
 	formatExpandedSkillResult,
 	formatSkillCallLabel,
 	formatSkillList,
+	formatRemoteSkillSearch,
 	formatSkillSummary,
 	hasShellMeta,
 	interpolateSkill,
@@ -73,9 +74,28 @@ describe("formatSkillList", () => {
 	});
 });
 
+describe("formatRemoteSkillSearch", () => {
+	it("shows explicit source and name arguments for a second fetch call", () => {
+		expect(
+			formatRemoteSkillSearch("hallmark", [
+				{
+					name: "hallmark",
+					slug: "nutlope/hallmark/hallmark",
+					source: "nutlope/hallmark",
+					installs: 24_849,
+				},
+			]),
+		).toContain('fetch with source="nutlope/hallmark" name="hallmark"');
+	});
+});
+
 describe("formatSkillCallLabel", () => {
 	it("labels each operation distinctly", () => {
 		expect(formatSkillCallLabel({})).toBe("list");
+		expect(formatSkillCallLabel({ search: "design" })).toBe("search · design");
+		expect(formatSkillCallLabel({ source: "nutlope/hallmark", name: "hallmark" })).toBe(
+			"remote · nutlope/hallmark@hallmark",
+		);
 		expect(formatSkillCallLabel({ name: "test" })).toBe("description · test");
 		expect(formatSkillCallLabel({ name: "test", full: true })).toBe("instructions · test");
 		expect(formatSkillCallLabel({ name: "docx", resource: "references/guide.md" })).toBe(
@@ -94,6 +114,9 @@ describe("formatSkillCallLabel", () => {
 describe("formatCollapsedSkillResult", () => {
 	it("summarizes each successful result distinctly", () => {
 		expect(formatCollapsedSkillResult({ mode: "list", count: 28 })).toBe("28 skills");
+		expect(formatCollapsedSkillResult({ mode: "search", query: "design", count: 10 })).toBe(
+			"10 remote matches",
+		);
 		expect(formatCollapsedSkillResult({ mode: "description", name: "test" })).toBe(
 			"test · description",
 		);
