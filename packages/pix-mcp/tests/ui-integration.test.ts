@@ -8,6 +8,7 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
 import http from "node:http";
 import { ConsentManager } from "../src/consent-manager.ts";
+import { logger } from "../src/logger.ts";
 import type { McpServerManager } from "../src/server-manager.ts";
 import type { UiResourceContent, UiSessionMessages } from "../src/types.ts";
 import { UiResourceHandler } from "../src/ui-resource-handler.ts";
@@ -475,8 +476,16 @@ describe("MCP UI Integration", () => {
 			const browser = new BrowserSimulator(handle);
 			await browser.loadPage();
 
-			// Tool call should fail but not crash the server
-			await expect(browser.callTool("failing_tool")).rejects.toThrow();
+			// The handler logs the deliberately-triggered 500 via console.error;
+			// mute it so the expected failure does not dump a stack trace into the
+			// test output. Restore afterward so real errors stay visible.
+			logger.setLevel("silent");
+			try {
+				// Tool call should fail but not crash the server
+				await expect(browser.callTool("failing_tool")).rejects.toThrow();
+			} finally {
+				logger.setLevel("info");
+			}
 
 			// Server should still be responsive
 			await browser.heartbeat();

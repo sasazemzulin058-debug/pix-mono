@@ -3,7 +3,7 @@
  * Provides structured, contextual logs with levels.
  */
 
-export type LogLevel = "debug" | "info" | "warn" | "error";
+export type LogLevel = "debug" | "info" | "warn" | "error" | "silent";
 
 export interface LogContext {
 	server?: string;
@@ -28,6 +28,9 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
 	info: 1,
 	warn: 2,
 	error: 3,
+	// "silent" sits above every emittable level, so shouldLog() is always false
+	// when it is the minimum — a full off switch (used to mute expected errors).
+	silent: 4,
 };
 
 const LEVEL_PREFIX: Record<LogLevel, string> = {
@@ -35,6 +38,7 @@ const LEVEL_PREFIX: Record<LogLevel, string> = {
 	info: "[MCP-UI]",
 	warn: "[MCP-UI:WARN]",
 	error: "[MCP-UI:ERROR]",
+	silent: "",
 };
 
 class Logger {
