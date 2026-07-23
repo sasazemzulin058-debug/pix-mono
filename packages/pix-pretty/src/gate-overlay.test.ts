@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, jest, test } from "bun:test";
 import { type OverlayUI, showOverlay } from "./gate-overlay.ts";
 
 // ── Mock host ─────────────────────────────────────────────────────────────────
@@ -240,28 +240,40 @@ function makeTimerUI(onReady?: (comp: Wired) => void): OverlayUI {
 
 describe("showOverlay — auto-deny timer", () => {
 	test("expires to timeout when left untouched", async () => {
-		const result = await showOverlay(makeTimerUI(), {
-			mode: "confirm",
-			title: "T",
-			timeoutMs: 1000, // ceil → 1s, fires on first tick
-		});
-		expect(result.action).toBe("timeout");
+		jest.useFakeTimers();
+		try {
+			const pending = showOverlay(makeTimerUI(), {
+				mode: "confirm",
+				title: "T",
+				timeoutMs: 1000, // ceil → 1s, fires on first tick
+			});
+			jest.advanceTimersByTime(1000); // fire the auto-deny tick without a real wait
+			const result = await pending;
+			expect(result.action).toBe("timeout");
+		} finally {
+			jest.useRealTimers();
+		}
 	});
 
 	test("first keypress cancels the timer (no auto-deny)", async () => {
-		let live: Wired | undefined;
-		const pending = showOverlay(
-			makeTimerUI((comp) => {
-				live = comp;
-				comp.handleInput(DOWN); // any key — cancels the dead-man's switch
-			}),
-			{ mode: "confirm", title: "T", timeoutMs: 1000 },
-		);
-		// Wait well past the 1s window. A live timer would have resolved "timeout";
-		// since the keypress cancelled it, the promise is still pending here.
-		await new Promise((r) => setTimeout(r, 1300));
-		live?.handleInput(ENTER); // now deny explicitly
-		const result = await pending;
-		expect(result.action).toBe("denied");
+		jest.useFakeTimers();
+		try {
+			let live: Wired | undefined;
+			const pending = showOverlay(
+				makeTimerUI((comp) => {
+					live = comp;
+					comp.handleInput(DOWN); // any key — cancels the dead-man's switch
+				}),
+				{ mode: "confirm", title: "T", timeoutMs: 1000 },
+			);
+			// Advance well past the 1s window. A live timer would have resolved
+			// "timeout"; the keypress cancelled it, so the promise stays pending.
+			jest.advanceTimersByTime(1300);
+			live?.handleInput(ENTER); // now deny explicitly
+			const result = await pending;
+			expect(result.action).toBe("denied");
+		} finally {
+			jest.useRealTimers();
+		}
 	});
 });

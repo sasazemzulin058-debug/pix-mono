@@ -172,7 +172,12 @@ export async function detectInstallMethod(pi: ExtensionAPI): Promise<InstallMeth
 	return "native";
 }
 
-export async function runWithRetry(pi: ExtensionAPI, spec: CommandSpec) {
+/** Backoff delay between retries. Injectable so tests can skip the real wait. */
+export type Sleep = (ms: number) => Promise<void>;
+
+const realSleep: Sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export async function runWithRetry(pi: ExtensionAPI, spec: CommandSpec, sleep: Sleep = realSleep) {
 	let lastOutput = "";
 	for (let attempt = 1; attempt <= 3; attempt++) {
 		// nice -n 19: deprioritize the install so the TUI keeps echoing keystrokes.
@@ -183,7 +188,7 @@ export async function runWithRetry(pi: ExtensionAPI, spec: CommandSpec) {
 		if ((result.code ?? 0) === 0) return { ok: true, output: lastOutput, attempts: attempt };
 		if (attempt === 3 || !isTransient(lastOutput))
 			return { ok: false, output: lastOutput, attempts: attempt };
-		await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+		await sleep(attempt * 1500);
 	}
 	return { ok: false, output: lastOutput, attempts: 3 };
 }

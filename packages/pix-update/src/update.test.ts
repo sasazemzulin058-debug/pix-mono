@@ -349,6 +349,8 @@ describe("detectInstallMethod", () => {
 // ─── runWithRetry ─────────────────────────────────────────────────────────────
 
 describe("runWithRetry", () => {
+	// Skip the real backoff wait so retry tests stay fast.
+	const noSleep = async () => {};
 	const spec = {
 		command: "bun",
 		args: ["add", "-g", "pkg@latest"],
@@ -374,7 +376,7 @@ describe("runWithRetry", () => {
 			if (calls < 2) return { stdout: "", stderr: "ETIMEDOUT", code: 1 };
 			return { stdout: "ok", stderr: "", code: 0 };
 		});
-		const result = await runWithRetry(pi, spec);
+		const result = await runWithRetry(pi, spec, noSleep);
 		expect(result.ok).toBe(true);
 		expect(result.attempts).toBe(2);
 	});
@@ -397,7 +399,7 @@ describe("runWithRetry", () => {
 			stderr: "ETIMEDOUT",
 			code: 1,
 		}));
-		const result = await runWithRetry(pi, spec);
+		const result = await runWithRetry(pi, spec, noSleep);
 		expect(result.ok).toBe(false);
 		expect(result.attempts).toBe(3);
 	});
