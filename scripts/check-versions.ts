@@ -43,20 +43,33 @@ try {
 }
 
 // ── Detect changed packages ───────────────────────────────────────────────────
+//
+// We only flag packages whose `version` in package.json has been bumped since
+// the last release tag. A package that received a dependency or test-only
+// change without a version bump is intentionally not subject to the guard —
+// re-publishing would be a no-op (npm rejects duplicate versions), and the
+// guard exists to catch forgotten bumps, not unrelated patches.
+
+async function versionAt(ref: string, pkgDir: string): Promise<string | undefined> {
+	try {
+		const result =
+			await $`git show ${ref}:packages/${pkgDir}/package.json`.quiet();
+		const manifest = JSON.parse(result.stdout.toString()) as PkgJson;
+		return manifest.version;
+	} catch {
+		return undefined;
+	}
+}
+
+async function versionBumped(pkg: { dir: string; version: string }): Promise<boolean> {
+	if (!lastTag) return true;
+	const previous = await versionAt(lastTag, pkg.dir);
+	return previous !== pkg.version;
+}
 
 const changed: typeof pkgs = [];
 for (const pkg of pkgs) {
-	if (!lastTag) {
-		changed.push(pkg);
-		continue;
-	}
-	try {
-		await $`git diff --quiet ${lastTag} -- packages/${pkg.dir}/`.quiet();
-		// exit 0 = no changes — skip
-	} catch {
-		// exit 1 = has changes
-		changed.push(pkg);
-	}
+	if (await versionBumped(pkg)) changed.push(pkg);
 }
 
 if (changed.length === 0) {
