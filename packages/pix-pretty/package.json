@@ -61,7 +61,7 @@
 		"@xynogen/pix-data": "^0.3.0",
 		"cli-highlight": "^2.1.11",
 		"@ff-labs/fff-node": "^0.5.2",
-		"diff": "^7.0.0"
+		"diff": "^8.0.3"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-coding-agent": "*",
