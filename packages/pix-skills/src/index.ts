@@ -28,7 +28,7 @@ import {
 	tokenizeCommand,
 } from "./directive.ts";
 import { once } from "./once.ts";
-import { fetchRemoteSkill, searchRemoteSkills, type RemoteSkillSearchResult } from "./remote.ts";
+import { fetchRemoteSkill, type RemoteSkillSearchResult, searchRemoteSkills } from "./remote.ts";
 import { runArgv } from "./run.ts";
 
 // Re-export the pure directive API so consumers can import from the package root.
