@@ -14,4 +14,6 @@ export interface ToolContext {
 	fffState: FffState;
 	/** FFF cursor store */
 	cursorStore: CursorStore;
+	/** Optional terminal-width override — used by tests to avoid process-global mutation. */
+	terminalWidth?: () => number;
 }

@@ -47,75 +47,64 @@ describe("registerBashTool", () => {
 		const registered: {
 			renderCall?: (...args: unknown[]) => MockTextComponent;
 		} = {};
-		const origColumns = process.env.COLUMNS;
-		process.env.COLUMNS = "24";
-		process.stdout.emit("resize");
-		process.stdin.emit("resize");
+		const mockPi: PiPrettyApi = {
+			registerTool(tool: unknown) {
+				Object.assign(registered, tool);
+			},
+			registerCommand() {},
+			on() {},
+		};
 
-		try {
-			const mockPi: PiPrettyApi = {
-				registerTool(tool: unknown) {
-					Object.assign(registered, tool);
-				},
-				registerCommand() {},
-				on() {},
-			};
-
-			registerBashTool(
-				mockPi,
-				() => ({
-					execute: async () => ({
-						content: [{ type: "text", text: "ok" }],
-						details: undefined,
-					}),
+		registerBashTool(
+			mockPi,
+			() => ({
+				execute: async () => ({
+					content: [{ type: "text", text: "ok" }],
+					details: undefined,
 				}),
-				{
-					cwd: process.cwd(),
-					sp: (p: string) => p,
-					TextComponent: MockTextComponent as unknown as TextComponentCtor,
-					fffState: {
-						module: null,
-						finder: null,
-						partialIndex: false,
-						dbDir: null,
-					} satisfies FffState,
-					cursorStore: {
-						store: () => "",
-						get: () => undefined,
-					} as unknown as CursorStore,
-				},
-			);
+			}),
+			{
+				cwd: process.cwd(),
+				sp: (p: string) => p,
+				TextComponent: MockTextComponent as unknown as TextComponentCtor,
+				fffState: {
+					module: null,
+					finder: null,
+					partialIndex: false,
+					dbDir: null,
+				} satisfies FffState,
+				cursorStore: {
+					store: () => "",
+					get: () => undefined,
+				} as unknown as CursorStore,
+				terminalWidth: () => 24,
+			},
+		);
 
-			const theme: ThemeLike = {
-				fg: (_key: string, value: string) => value,
-				bold: (value: string) => value,
-			};
-			const ctx: RenderContextLike = {
-				expanded: false,
-				isError: false,
-				invalidate: () => {},
-				state: {},
-			};
+		const theme: ThemeLike = {
+			fg: (_key: string, value: string) => value,
+			bold: (value: string) => value,
+		};
+		const ctx: RenderContextLike = {
+			expanded: false,
+			isError: false,
+			invalidate: () => {},
+			state: {},
+		};
 
-			const text = registered.renderCall?.(
-				{
-					command: 'printf "very very very long line"\necho second\necho third',
-					timeout: 30,
-				},
-				theme,
-				ctx,
-			);
+		const text = registered.renderCall?.(
+			{
+				command: 'printf "very very very long line"\necho second\necho third',
+				timeout: 30,
+			},
+			theme,
+			ctx,
+		);
 
-			expect(text).toBeDefined();
-			const rendered = text?.getText() ?? "";
-			for (const line of rendered.split("\n")) {
-				expect(visibleWidth(line)).toBeLessThanOrEqual(24);
-			}
-		} finally {
-			if (origColumns === undefined) delete process.env.COLUMNS;
-			else process.env.COLUMNS = origColumns;
-			process.stdout.emit("resize");
-			process.stdin.emit("resize");
+		expect(text).toBeDefined();
+		const rendered = text?.getText() ?? "";
+		for (const line of rendered.split("\n")) {
+			expect(visibleWidth(line)).toBeLessThanOrEqual(24);
 		}
 	});
 

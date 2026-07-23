@@ -181,6 +181,7 @@ mock.module("./lib.ts", () => {
 	};
 });
 
+import { termW } from "@xynogen/pix-pretty/utils";
 import registerSudo from "./index.ts";
 
 // Minimal theme stub: returns text unchanged so assertions match plain strings.
@@ -267,7 +268,10 @@ function makeHost() {
 }
 
 function rendered(component: RenderComponent): string {
-	return component.render(120).join("\n");
+	// Rows are padded to termW() by fillToolBackground; render at the same width
+	// so the baked line fits exactly (a fixed width wider/narrower than termW()
+	// would wrap or clip, flaking the one-line assertions under a real tty).
+	return component.render(termW()).join("\n");
 }
 
 function renderResult(

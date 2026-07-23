@@ -35,14 +35,14 @@ function preserveToolBackground(ansi: string, bg: string): string {
 	});
 }
 
-export function fillToolBackground(text: string, bg = BG_BASE): string {
-	const width = termW();
+export function fillToolBackground(text: string, bg = BG_BASE, width?: number): string {
+	const resolvedWidth = width ?? termW();
 	return text
 		.split("\n")
 		.map((line) => {
 			const normalized = preserveToolBackground(line, bg);
-			const fitted = preserveToolBackground(truncateToWidth(normalized, width, ""), bg);
-			const padding = Math.max(0, width - visibleWidth(fitted));
+			const fitted = preserveToolBackground(truncateToWidth(normalized, resolvedWidth, ""), bg);
+			const padding = Math.max(0, resolvedWidth - visibleWidth(fitted));
 			return `${bg}${fitted}${" ".repeat(padding)}${RST}`;
 		})
 		.join("\n");

@@ -6,7 +6,7 @@ import type {
 
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { type CollapseState, tickCollapse } from "@xynogen/pix-data/collapse";
-import { FG_DIM, RST } from "@xynogen/pix-pretty/ansi";
+import { BG_BASE, FG_DIM, RST } from "@xynogen/pix-pretty/ansi";
 import { MAX_PREVIEW_LINES } from "@xynogen/pix-pretty/config";
 import type { ToolContext } from "@xynogen/pix-pretty/context";
 import { renderBashOutput } from "@xynogen/pix-pretty/renderers";
@@ -62,7 +62,7 @@ export function registerBashTool(
 	createBashTool: ToolFactory<BashToolInput>,
 	ctx: ToolContext,
 ): void {
-	const { cwd, TextComponent } = ctx;
+	const { cwd, TextComponent, terminalWidth } = ctx;
 	const origBash = createBashTool(cwd);
 
 	pi.registerTool({
@@ -119,7 +119,7 @@ export function registerBashTool(
 					? `${firstLine} ${theme.fg("muted", `… (+${cmdLines.length - 1} lines)`)}`
 					: firstLine;
 			const baseCmd = renderCtx.expanded ? displayCmdRaw : compactCmd;
-			const availableWidth = Math.max(1, termW() - 1);
+			const availableWidth = Math.max(1, (terminalWidth?.() ?? termW()) - 1);
 			const prefix = `${label} `;
 			const reserve = Math.max(0, availableWidth - timeout.length);
 			const displayCmd = truncateToWidth(
@@ -127,7 +127,9 @@ export function registerBashTool(
 				Math.max(1, reserve - prefix.length),
 				"…",
 			);
-			text.setText(fillToolBackground(`${prefix}${displayCmd}${timeout}`));
+			text.setText(
+				fillToolBackground(`${prefix}${displayCmd}${timeout}`, BG_BASE, terminalWidth?.()),
+			);
 			return text;
 		},
 
