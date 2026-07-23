@@ -15,6 +15,11 @@
 import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { $ } from "bun";
+import {
+	formatStaticAnalysisFailure,
+	runStaticAnalysis,
+	StaticAnalysisError,
+} from "./static-analysis.ts";
 
 const CONCURRENCY = Number(process.env.PUBLISH_CONCURRENCY ?? "6");
 const DRY_RUN = process.argv.includes("--dry-run");
@@ -32,13 +37,27 @@ interface PkgInfo {
 	version: string;
 }
 
+interface PackageManifest {
+	private?: boolean;
+	name?: string;
+	version?: string;
+}
+
+function readPackageManifest(path: string): PackageManifest {
+	try {
+		return JSON.parse(readFileSync(path, "utf8")) as PackageManifest;
+	} catch (cause) {
+		throw new Error(`Unable to read package manifest: ${path}`, { cause });
+	}
+}
+
 const packagesDir = join(import.meta.dir, "..", "packages");
 const pkgs: PkgInfo[] = [];
 
 for (const entry of readdirSync(packagesDir)) {
 	const pkgJson = join(packagesDir, entry, "package.json");
 	if (!existsSync(pkgJson)) continue;
-	const pkg = JSON.parse(readFileSync(pkgJson, "utf8"));
+	const pkg = readPackageManifest(pkgJson);
 	if (pkg.private) continue;
 	if (!pkg.name || !pkg.version) continue;
 	pkgs.push({ dir: join(packagesDir, entry), name: pkg.name, version: pkg.version });
@@ -56,6 +75,17 @@ for (const { dir, name } of pkgs) {
 }
 if (hasWorkspaceProtocol) {
 	console.error("\nAborted. Fix workspace: references and retry.");
+	process.exit(1);
+}
+
+try {
+	await runStaticAnalysis();
+} catch (error) {
+	if (error instanceof StaticAnalysisError) {
+		console.error(`\n${formatStaticAnalysisFailure(error)}`);
+	} else {
+		console.error(error instanceof Error ? `\n✖ ${error.message}` : "\n✖ Static analysis failed");
+	}
 	process.exit(1);
 }
 

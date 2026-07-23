@@ -29,6 +29,7 @@
 		"dev:unlink": "bash scripts/dev-link.sh --unlink",
 		"publish:all": "bun scripts/publish-all.ts",
 		"publish:dry": "bun scripts/publish-all.ts --dry-run",
+		"static-analysis": "bun scripts/static-analysis.ts",
 		"graph:analyze": "bun scripts/analyze-graph.ts"
 	},
 	"devDependencies": {

@@ -159,9 +159,12 @@ graphify query "your question" --graph graphify-out/graph.cleaned.json
 ## Publishing
 
 ```bash
-bun run publish:dry   # verify what would be published
-bun run publish:all   # publish every package to npm
+bun run static-analysis  # run the pre-publish gate directly
+bun run publish:dry      # run the gate, then verify what would be published
+bun run publish:all      # run the gate, then publish every new package version
 ```
+
+The pre-publish gate runs Biome, TypeScript, dependency-policy tests, and a high-severity dependency audit before any npm registry request. A failure preserves the analyzer output and prints a GitHub Actions `::error` annotation plus a `STATIC_ANALYSIS_FAILURE=<json>` marker containing the failed check, command, exit code, and exact reproduction command. This lets humans and CI coding agents identify and rerun the failing stage from the logs.
 
 ## Lineage
 

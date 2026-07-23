@@ -19,11 +19,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Lint & format (biome ci)
-        run: bun run ci
-
-      - name: Typecheck
-        run: bun run typecheck
+      - name: Static analysis
+        run: bun run static-analysis
 
       - name: Test
         run: bun run test
