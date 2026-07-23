@@ -27,7 +27,13 @@ const pkgs: { name: string; dir: string; version: string }[] = [];
 for (const entry of readdirSync(packagesDir)) {
 	const pkgPath = join(packagesDir, entry, "package.json");
 	if (!existsSync(pkgPath)) continue;
-	const pkg: PkgJson = JSON.parse(readFileSync(pkgPath, "utf8"));
+	let pkg: PkgJson;
+	try {
+		pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+	} catch {
+		console.error(`  ⚠ skipping packages/${entry} — unparsable package.json`);
+		continue;
+	}
 	if (pkg.private || !pkg.name || !pkg.version) continue;
 	pkgs.push({ name: pkg.name, dir: entry, version: pkg.version });
 }

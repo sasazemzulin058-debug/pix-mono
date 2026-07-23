@@ -1,12 +1,73 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const repoRoot = join(import.meta.dir, "..");
+interface Sandbox {
+	root: string;
+	scriptPath: string;
+}
 
-function runCheckVersions(): { stdout: string; stderr: string; status: number } {
-	const result = spawnSync("bun", [join(repoRoot, "scripts/check-versions.ts")], {
-		cwd: repoRoot,
+let sandbox: Sandbox | undefined;
+
+async function setupSandbox(): Promise<Sandbox> {
+	const root = mkdtempSync(join(tmpdir(), "pix-check-versions-"));
+	// Copy the real script under test so the test exercises the same source.
+	const source = join(import.meta.dir, "check-versions.ts");
+	const scriptsDir = join(root, "scripts");
+	mkdirSync(scriptsDir, { recursive: true });
+	const scriptPath = join(scriptsDir, "check-versions.ts");
+	const script = await Bun.file(source).text();
+	const releaseTagHelper = await Bun.file(join(import.meta.dir, "release-tag.ts")).text();
+	await Bun.write(scriptPath, script);
+	await Bun.write(join(scriptsDir, "release-tag.ts"), releaseTagHelper);
+
+	// Initialise a temporary git repo so the test can control the release
+	// baseline independently of the checkout depth and tags in CI.
+	spawnSync("git", ["init", "-q", "--initial-branch=main"], { cwd: root });
+	spawnSync("git", ["config", "user.email", "test@example.com"], { cwd: root });
+	spawnSync("git", ["config", "user.name", "Test"], { cwd: root });
+
+	// Scaffold three packages so each test can distinguish a version bump
+	// from unchanged manifests and dependency-only edits.
+	const packagesDir = join(root, "packages");
+	mkdirSync(join(packagesDir, "stale"), { recursive: true });
+	mkdirSync(join(packagesDir, "fresh"), { recursive: true });
+	mkdirSync(join(packagesDir, "stable"), { recursive: true });
+
+	writeFileSync(
+		join(packagesDir, "stale", "package.json"),
+		JSON.stringify({ name: "stale-pkg", version: "1.0.0" }, null, "\t"),
+	);
+	writeFileSync(
+		join(packagesDir, "fresh", "package.json"),
+		JSON.stringify({ name: "fresh-pkg", version: "1.0.0" }, null, "\t"),
+	);
+	writeFileSync(
+		join(packagesDir, "stable", "package.json"),
+		JSON.stringify({ name: "stable-pkg", version: "1.0.0", dependencies: { lodash: "^4.0.0" } }, null, "\t"),
+	);
+
+	spawnSync("git", ["add", "-A"], { cwd: root });
+	spawnSync("git", ["commit", "-q", "-m", "init"], { cwd: root });
+	// Tag the initial state as a release so the guard can find a baseline.
+	spawnSync("git", ["tag", "release-20240101-0000"], { cwd: root });
+
+	return { root, scriptPath };
+}
+
+function teardownSandbox(sandbox: Sandbox): void {
+	rmSync(sandbox.root, { recursive: true, force: true });
+}
+
+function runCheckVersions(sandbox: Sandbox): {
+	stdout: string;
+	stderr: string;
+	status: number;
+} {
+	const result = spawnSync("bun", [sandbox.scriptPath], {
+		cwd: sandbox.root,
 		encoding: "utf8",
 	});
 	return {
@@ -16,26 +77,49 @@ function runCheckVersions(): { stdout: string; stderr: string; status: number } 
 	};
 }
 
+beforeEach(async () => {
+	sandbox = await setupSandbox();
+});
+
+afterEach(() => {
+	if (sandbox) teardownSandbox(sandbox);
+	sandbox = undefined;
+});
+
 describe("check-versions pre-publish guard", () => {
-	test("skips packages whose version is unchanged since the last release tag", () => {
-		// Regression: dependency-only patches to a package whose version is
-		// already on npm must not block a release. The pre-fix script flagged
-		// any directory change since the last release tag, so an unrelated
-		// `dependencies` bump to pix-pretty made it report
-		// "ALREADY on npm! Bump the version."
-		const { stdout, status } = runCheckVersions();
-		// pix-pretty's current version is on npm but was not bumped in this
-		// release — it must not appear in the output.
-		expect(stdout).not.toContain("@xynogen/pix-pretty");
+	test("skips a dependency-only edit without a version bump", () => {
+		if (!sandbox) throw new Error("sandbox not initialised");
+		writeFileSync(
+			join(sandbox.root, "packages/stable/package.json"),
+			JSON.stringify(
+				{ name: "stable-pkg", version: "1.0.0", dependencies: { lodash: "^4.17.21" } },
+				null,
+				"\t",
+			),
+		);
+		spawnSync("git", ["add", "-A"], { cwd: sandbox.root });
+		spawnSync("git", ["commit", "-q", "-m", "bump dependency"], { cwd: sandbox.root });
+
+		const { stdout, stderr, status } = runCheckVersions(sandbox);
+		expect(stdout).toContain("No packages changed since last release");
+		expect(`${stdout}${stderr}`).not.toContain("stable-pkg");
 		expect(status).toBe(0);
 	});
 
-	test("reports packages whose version is bumped and not yet on npm", () => {
-		const { stdout, status } = runCheckVersions();
-		// Both the pix-skills patch and the pix-core aggregator bump qualify.
-		expect(stdout).toContain("@xynogen/pix-skills");
-		expect(stdout).toContain("@xynogen/pix-core");
-		expect(stdout).toContain("Ready to publish.");
-		expect(status).toBe(0);
+	test("reports only packages whose version changed", () => {
+		if (!sandbox) throw new Error("sandbox not initialised");
+		writeFileSync(
+			join(sandbox.root, "packages/fresh/package.json"),
+			JSON.stringify({ name: "fresh-pkg", version: "1.0.1" }, null, "\t"),
+		);
+		spawnSync("git", ["add", "-A"], { cwd: sandbox.root });
+		spawnSync("git", ["commit", "-q", "-m", "bump fresh"], { cwd: sandbox.root });
+
+		const { stdout, stderr } = runCheckVersions(sandbox);
+		const output = `${stdout}${stderr}`;
+		expect(output).toContain("Checking 1 changed package(s)");
+		expect(output).toContain("fresh-pkg");
+		expect(output).not.toContain("stale-pkg");
+		expect(output).not.toContain("stable-pkg");
 	});
 });
