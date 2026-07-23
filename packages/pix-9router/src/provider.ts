@@ -26,7 +26,7 @@ const ZERO_COST = {
 // Fallback pattern-based detection if models.dev lookup fails
 const IMAGE_CAPABLE_PATTERNS = [/claude/i, /gpt-5/i, /gpt-4/i, /kimi-k2/i, /hy3/i];
 
-function getInputTypes(model: RouterModel, devModel?: ModelsDevModel): ("text" | "image")[] {
+export function getInputTypes(model: RouterModel, devModel?: ModelsDevModel): ("text" | "image")[] {
 	if (devModel?.modalities?.input) {
 		const inputs = devModel.modalities.input.filter(
 			(i): i is "text" | "image" => i === "text" || i === "image",
@@ -38,11 +38,11 @@ function getInputTypes(model: RouterModel, devModel?: ModelsDevModel): ("text" |
 	return ["text"];
 }
 
-function getModelName(model: RouterModel, devModel?: ModelsDevModel): string {
+export function getModelName(model: RouterModel, devModel?: ModelsDevModel): string {
 	return model.name || devModel?.name || model.id || "unknown";
 }
 
-function getContextWindow(model: RouterModel, devModel?: ModelsDevModel): number {
+export function getContextWindow(model: RouterModel, devModel?: ModelsDevModel): number {
 	return (
 		model.context_window ||
 		model.contextWindow ||
@@ -52,7 +52,7 @@ function getContextWindow(model: RouterModel, devModel?: ModelsDevModel): number
 	);
 }
 
-function getMaxTokens(model: RouterModel, devModel?: ModelsDevModel): number {
+export function getMaxTokens(model: RouterModel, devModel?: ModelsDevModel): number {
 	return (
 		model.max_tokens ||
 		model.maxTokens ||
@@ -62,7 +62,7 @@ function getMaxTokens(model: RouterModel, devModel?: ModelsDevModel): number {
 	);
 }
 
-function getReasoning(model: RouterModel, devModel?: ModelsDevModel): boolean {
+export function getReasoning(model: RouterModel, devModel?: ModelsDevModel): boolean {
 	if (typeof devModel?.reasoning === "boolean") return devModel.reasoning;
 	return /reasoner|thinking|xhigh|high|max|pro|codex|opus|sonnet/i.test(model.id ?? "");
 }

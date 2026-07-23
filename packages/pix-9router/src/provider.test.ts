@@ -1,48 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import type { ModelsDevModel, RouterModel } from "./data.ts";
-
-// ── Re-export internal helpers for testing via module augmentation ────────────
-// provider.ts exports only the default fn; we test the pure mapping logic
-// inline here to avoid coupling tests to private internals.
-
-const DEFAULT_CONTEXT_WINDOW = 128_000;
-const DEFAULT_MAX_TOKENS = 16_384;
-
-const IMAGE_CAPABLE_PATTERNS = [/claude/i, /gpt-5/i, /gpt-4/i, /kimi-k2/i, /hy3/i];
-
-function getInputTypes(model: RouterModel, devModel?: ModelsDevModel): ("text" | "image")[] {
-	if (devModel?.modalities?.input) {
-		const inputs = devModel.modalities.input.filter(
-			(i): i is "text" | "image" => i === "text" || i === "image",
-		);
-		if (inputs.length > 0) return inputs;
-	}
-	const id = model.id ?? "";
-	if (IMAGE_CAPABLE_PATTERNS.some((p) => p.test(id))) return ["text", "image"];
-	return ["text"];
-}
-
-function getModelName(model: RouterModel, devModel?: ModelsDevModel): string {
-	return model.name || devModel?.name || model.id || "unknown";
-}
-
-function getContextWindow(model: RouterModel, devModel?: ModelsDevModel): number {
-	return (
-		model.context_window ||
-		model.contextWindow ||
-		devModel?.limit?.context ||
-		DEFAULT_CONTEXT_WINDOW
-	);
-}
-
-function getMaxTokens(model: RouterModel, devModel?: ModelsDevModel): number {
-	return model.max_tokens || model.maxTokens || devModel?.limit?.output || DEFAULT_MAX_TOKENS;
-}
-
-function getReasoning(model: RouterModel, devModel?: ModelsDevModel): boolean {
-	if (typeof devModel?.reasoning === "boolean") return devModel.reasoning;
-	return /reasoner|thinking|xhigh|high|max|pro|codex|opus|sonnet/i.test(model.id ?? "");
-}
+import {
+	getContextWindow,
+	getInputTypes,
+	getMaxTokens,
+	getModelName,
+	getReasoning,
+} from "./provider.ts";
 
 // ── getInputTypes ────────────────────────────────────────────────────────────
 
@@ -129,12 +93,37 @@ describe("getContextWindow", () => {
 		expect(getContextWindow({ id: "x", contextWindow: 64_000 })).toBe(64_000);
 	});
 
+	it("falls back to capabilities.contextWindow (9router v1 nested shape)", () => {
+		expect(getContextWindow({ id: "x", capabilities: { contextWindow: 1_000_000 } })).toBe(
+			1_000_000,
+		);
+	});
+
+	it("top-level fields beat capabilities.contextWindow", () => {
+		expect(
+			getContextWindow({
+				id: "x",
+				contextWindow: 64_000,
+				capabilities: { contextWindow: 1_000_000 },
+			}),
+		).toBe(64_000);
+	});
+
+	it("capabilities.contextWindow beats devModel.limit.context", () => {
+		expect(
+			getContextWindow(
+				{ id: "x", capabilities: { contextWindow: 1_000_000 } },
+				{ id: "x", limit: { context: 200_000 } },
+			),
+		).toBe(1_000_000);
+	});
+
 	it("falls back to devModel.limit.context", () => {
 		expect(getContextWindow({ id: "x" }, { id: "x", limit: { context: 200_000 } })).toBe(200_000);
 	});
 
 	it("falls back to DEFAULT_CONTEXT_WINDOW", () => {
-		expect(getContextWindow({ id: "x" })).toBe(DEFAULT_CONTEXT_WINDOW);
+		expect(getContextWindow({ id: "x" })).toBe(128_000);
 	});
 });
 
@@ -151,12 +140,40 @@ describe("getMaxTokens", () => {
 		expect(getMaxTokens({ id: "x", maxTokens: 8_192 })).toBe(8_192);
 	});
 
+	it("falls back to capabilities.maxOutput (9router v1 nested shape)", () => {
+		expect(getMaxTokens({ id: "x", capabilities: { maxOutput: 64_000 } })).toBe(64_000);
+	});
+
+	it("top-level fields beat capabilities.maxOutput", () => {
+		expect(getMaxTokens({ id: "x", maxTokens: 8_192, capabilities: { maxOutput: 64_000 } })).toBe(
+			8_192,
+		);
+	});
+
+	it("capabilities.maxOutput beats devModel.limit.output", () => {
+		expect(
+			getMaxTokens(
+				{ id: "x", capabilities: { maxOutput: 64_000 } },
+				{ id: "x", limit: { output: 16_000 } },
+			),
+		).toBe(64_000);
+	});
+
 	it("falls back to devModel.limit.output", () => {
 		expect(getMaxTokens({ id: "x" }, { id: "x", limit: { output: 16_000 } })).toBe(16_000);
 	});
 
 	it("falls back to DEFAULT_MAX_TOKENS", () => {
-		expect(getMaxTokens({ id: "x" })).toBe(DEFAULT_MAX_TOKENS);
+		expect(getMaxTokens({ id: "x" })).toBe(16_384);
+	});
+
+	it("handles the PR #9 regression case (qwen3-coder-flash nested capabilities)", () => {
+		const model: RouterModel = {
+			id: "alims-intl/qwen3-coder-flash-2025-07-28",
+			capabilities: { contextWindow: 1_000_000, maxOutput: 64_000 },
+		};
+		expect(getContextWindow(model)).toBe(1_000_000);
+		expect(getMaxTokens(model)).toBe(64_000);
 	});
 });
 
