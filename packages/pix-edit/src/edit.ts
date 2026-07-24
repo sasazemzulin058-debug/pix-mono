@@ -7,11 +7,13 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 
 import { type CollapseState, tickCollapse } from "@xynogen/pix-data/collapse";
+import { resolveBaseBackground } from "@xynogen/pix-pretty/ansi";
 import { MAX_RENDER_LINES } from "@xynogen/pix-pretty/config";
 import type { ToolContext } from "@xynogen/pix-pretty/context";
 import { parseDiff } from "@xynogen/pix-pretty/diff";
 import {
 	diffThemeCacheKey,
+	renderDiffSummary,
 	renderSplit,
 	resolveDiffColors,
 	summarize,
@@ -171,6 +173,7 @@ export function registerEditTool(
 		},
 
 		renderCall(args: EditParams, theme: ThemeLike, renderCtx: RenderContextLike<EditRenderState>) {
+			resolveBaseBackground(theme);
 			const fp = args?.path ?? args?.file_path ?? "";
 			const operations = getEditOperations(args);
 			const text = renderCtx.lastComponent ?? new TextComponent("", 0, 0);
@@ -188,8 +191,12 @@ export function registerEditTool(
 			}
 
 			const { summary } = summarizeEditOperations(operations);
-			const suffix = operations.length === 1 ? summary : `${operations.length} edits ${summary}`;
-			text.setText(fillToolBackground(`${hdr}  ${theme.fg("muted", suffix)}`));
+			const coloredSummary = renderDiffSummary(summary, theme);
+			const suffix =
+				operations.length === 1
+					? coloredSummary
+					: `${theme.fg("muted", `${operations.length} edits`)} ${coloredSummary}`;
+			text.setText(fillToolBackground(`${hdr}  ${suffix}`));
 			return text;
 		},
 
@@ -199,6 +206,7 @@ export function registerEditTool(
 			theme: ThemeLike,
 			renderCtx: RenderContextLike<EditRenderState>,
 		) {
+			resolveBaseBackground(theme);
 			const text = renderCtx.lastComponent ?? new TextComponent("", 0, 0);
 			const d = result.details as Record<string, unknown> | undefined;
 			const isPartial = _opt?.isPartial === true;
@@ -249,7 +257,8 @@ export function registerEditTool(
 					renderCtx.state._edk = key;
 					const loc =
 						(d.editLine as number) > 0 ? ` ${theme.fg("muted", `at line ${d.editLine}`)}` : "";
-					renderCtx.state._edt = `  ${d.summary}${loc}\n${theme.fg("muted", "  rendering diff…")}`;
+					const summary = renderDiffSummary(String(d.summary), theme);
+					renderCtx.state._edt = `  ${summary}${loc}\n${theme.fg("muted", "  rendering diff…")}`;
 					const dc = resolveDiffColors(theme);
 					const diff = parseDiff(
 						d.oldContent as string,
@@ -262,7 +271,8 @@ export function registerEditTool(
 							if (renderCtx.state._edk !== key) return;
 							const loc2 =
 								(d.editLine as number) > 0 ? ` ${theme.fg("muted", `at line ${d.editLine}`)}` : "";
-							renderCtx.state._edt = `  ${d.summary}${loc2}\n${rendered}`;
+							const summary = renderDiffSummary(String(d.summary), theme);
+							renderCtx.state._edt = `  ${summary}${loc2}\n${rendered}`;
 							renderCtx.invalidate();
 						})
 						.catch(() => {
@@ -281,7 +291,8 @@ export function registerEditTool(
 				if (renderCtx.toolCallId) trackInvalidator(renderCtx.toolCallId, renderCtx.invalidate);
 				if (renderCtx.state._edk !== key) {
 					renderCtx.state._edk = key;
-					renderCtx.state._edt = `  ${d.editCount} edits ${d.summary}\n${theme.fg("muted", "  rendering diff…")}`;
+					const summary = renderDiffSummary(String(d.summary), theme);
+					renderCtx.state._edt = `  ${theme.fg("muted", `${d.editCount} edits`)} ${summary}\n${theme.fg("muted", "  rendering diff…")}`;
 					const dc = resolveDiffColors(theme);
 					Promise.all(
 						(
@@ -299,7 +310,8 @@ export function registerEditTool(
 						.then((rendered) => {
 							if (renderCtx.state._edk !== key) return;
 							const body = rendered.join(`\n${theme.fg("muted", "  ···")}\n`);
-							renderCtx.state._edt = `  ${d.editCount} edits ${d.summary}\n${body}`;
+							const summary = renderDiffSummary(String(d.summary), theme);
+							renderCtx.state._edt = `  ${theme.fg("muted", `${d.editCount} edits`)} ${summary}\n${body}`;
 							renderCtx.invalidate();
 						})
 						.catch(() => {

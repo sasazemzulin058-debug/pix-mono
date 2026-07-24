@@ -156,21 +156,18 @@ pix-data hosts the **single shared config file** consumed by every `pix-*` packa
     }
   },
 
-  // Rendering options (pix-pretty)
+  // Rendering behavior (colors always come from the active Pi theme)
   "pretty": {
-    "syntaxTheme": "monokai",       // syntax-highlight theme (overrides PRETTY_THEME)
     "icons": "nerd",          // icon mode: nerd | unicode | ascii (overrides PRETTY_ICONS)
     "lsStyle": "grid",        // ls output layout: "grid" (horizontal) | "tree" (vertical)
-    "maxPreviewLines": 50,    // overrides PRETTY_MAX_PREVIEW_LINES
-    "diffColors": true        // colored diff output
-  },
-
-  // Optimizer initial state (pix-optimizer)
-  "optimizer": {
-    "caveman": "off",         // off | lite | full | ultra | micro
-    "rtk":     false,
-    "toon":    false,
-    "ponytail": "off"         // off | lite | full | ultra
+    "maxPreviewLines": 80,
+    "maxRenderLines": 150,
+    "maxHighlightChars": 80000,
+    "cacheLimit": 128,
+    "diff": {
+      "splitMinWidth": 150,
+      "splitMinCodeWidth": 60
+    }
   },
 
   // Gate rules (pix-gate)
@@ -182,7 +179,7 @@ pix-data hosts the **single shared config file** consumed by every `pix-*` packa
 }
 ```
 
-All sections are optional — missing keys fall back to the defaults shown above. Environment variables (e.g. `PRETTY_THEME`) still take precedence over `pix.json` values.
+All sections are optional — missing keys fall back to the defaults shown above. Syntax, diff, modal, and status colors are not configurable here; they follow the active Pi theme. Optimizer state lives separately in `~/.pi/agent/optimizer.json`. Legacy color and optimizer fields are ignored and removed the next time `/pix` saves the config.
 
 ### API — `@xynogen/pix-data/pix-config`
 

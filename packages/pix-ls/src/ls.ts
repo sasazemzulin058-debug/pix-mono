@@ -4,7 +4,7 @@ import type {
 	LsToolInput,
 } from "@earendil-works/pi-coding-agent";
 import { type CollapseState, tickCollapse } from "@xynogen/pix-data/collapse";
-import { FG_DIM, RST } from "@xynogen/pix-pretty/ansi";
+import { FG_DIM, RST, resolveBaseBackground } from "@xynogen/pix-pretty/ansi";
 import type { ToolContext } from "@xynogen/pix-pretty/context";
 import { renderTree } from "@xynogen/pix-pretty/renderers";
 import type {
@@ -75,6 +75,7 @@ export function registerLsTool(
 		},
 
 		renderCall(args: LsParams, theme: ThemeLike, renderCtx: RenderContextLike) {
+			resolveBaseBackground(theme);
 			const fp = args.path ?? ".";
 			const text = renderCtx.lastComponent ?? new TextComponent("", 0, 0);
 			if (
@@ -97,6 +98,7 @@ export function registerLsTool(
 			theme: ThemeLike,
 			renderCtx: RenderContextLike,
 		) {
+			resolveBaseBackground(theme);
 			const text = renderCtx.lastComponent ?? new TextComponent("", 0, 0);
 			const d = result.details as Record<string, unknown> | undefined;
 			const isPartial = (_opt as { isPartial?: boolean } | undefined)?.isPartial === true;
@@ -129,7 +131,7 @@ export function registerLsTool(
 				return text;
 			}
 			if (d?._type === "lsResult" && d.text) {
-				const tree = renderTree(d.text as string, d.path as string);
+				const tree = renderTree(d.text as string, d.path as string, theme);
 				const info = `${FG_DIM}${d.entryCount} entries${RST}`;
 				text.setText(fillToolBackground(`  ${info}\n${tree}`));
 				return text;

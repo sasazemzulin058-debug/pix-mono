@@ -12,7 +12,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { pixConfig } from "@xynogen/pix-data/pix-config";
 import type { OptimizerTool } from "./status.ts";
 
 type OptimizerFileConfig = Partial<Record<OptimizerTool, string>>;
@@ -32,17 +31,9 @@ function readFile(): OptimizerFileConfig {
 	}
 }
 
-/**
- * Read a single tool's persisted value.
- * Precedence: optimizer.json (runtime toggle) → pix.json → undefined
- */
+/** Read a single tool's persisted value from optimizer.json. */
 export function loadOptValue(tool: OptimizerTool): string | undefined {
-	const fromFile = readFile()[tool];
-	if (fromFile !== undefined) return fromFile;
-	// Fall back to pix.json
-	const pix = pixConfig().optimizer;
-	const val = pix[tool as keyof typeof pix];
-	return val && val !== "off" ? val : undefined;
+	return readFile()[tool];
 }
 
 /** Persist a single tool's value, merging into the shared config file. */

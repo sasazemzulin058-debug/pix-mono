@@ -1,6 +1,6 @@
 import { normalizeShikiContrast } from "./ansi.js";
 import { CACHE_LIMIT, MAX_HL_CHARS } from "./config.js";
-import type { BundledLanguage } from "./types.js";
+import type { BundledLanguage, FgTheme } from "./types.js";
 
 // Engine: cli-highlight (highlight.js-backed, synchronous ANSI output).
 //
@@ -63,6 +63,60 @@ function toHljsLang(language: BundledLanguage): string | undefined {
 	return hl.supportsLanguage(mapped) ? mapped : undefined;
 }
 
+type HighlightTheme = Record<string, (text: string) => string>;
+
+const SYNTAX_THEME_KEYS = [
+	"syntaxComment",
+	"syntaxKeyword",
+	"syntaxFunction",
+	"syntaxVariable",
+	"syntaxString",
+	"syntaxNumber",
+	"syntaxType",
+	"syntaxOperator",
+	"syntaxPunctuation",
+] as const;
+
+function highlightThemeKey(theme?: FgTheme): string {
+	if (!theme?.getFgAnsi) return "default";
+	try {
+		return SYNTAX_THEME_KEYS.map((key) => theme.getFgAnsi?.(key) ?? "").join("|");
+	} catch {
+		return "default";
+	}
+}
+
+/** Map highlight.js scopes onto the active Pi theme's semantic syntax colors. */
+function buildHighlightTheme(theme?: FgTheme): HighlightTheme | undefined {
+	if (!theme) return undefined;
+	const fg = (key: string) => (text: string) => theme.fg(key, text);
+	return {
+		keyword: fg("syntaxKeyword"),
+		built_in: fg("syntaxType"),
+		literal: fg("syntaxKeyword"),
+		number: fg("syntaxNumber"),
+		regexp: fg("syntaxString"),
+		string: fg("syntaxString"),
+		comment: fg("syntaxComment"),
+		doctag: fg("syntaxComment"),
+		meta: fg("syntaxComment"),
+		function: fg("syntaxFunction"),
+		title: fg("syntaxFunction"),
+		class: fg("syntaxType"),
+		type: fg("syntaxType"),
+		tag: fg("syntaxPunctuation"),
+		name: fg("syntaxKeyword"),
+		attr: fg("syntaxVariable"),
+		attribute: fg("syntaxVariable"),
+		variable: fg("syntaxVariable"),
+		params: fg("syntaxVariable"),
+		operator: fg("syntaxOperator"),
+		punctuation: fg("syntaxPunctuation"),
+		addition: fg("toolDiffAdded"),
+		deletion: fg("toolDiffRemoved"),
+	};
+}
+
 export const _cache = new Map<string, string[]>();
 
 function _touch(k: string, v: string[]): string[] {
@@ -81,6 +135,7 @@ function _touch(k: string, v: string[]): string[] {
 export async function hlBlock(
 	code: string,
 	language: BundledLanguage | undefined,
+	theme?: FgTheme,
 ): Promise<string[]> {
 	if (!code) return [""];
 	if (!language || code.length > MAX_HL_CHARS) return code.split("\n");
@@ -88,7 +143,7 @@ export async function hlBlock(
 	const hljsLang = toHljsLang(language);
 	if (!hljsLang) return code.split("\n");
 
-	const k = `${hljsLang}\0${code}`;
+	const k = `${hljsLang}\0${highlightThemeKey(theme)}\0${code}`;
 	const hit = _cache.get(k);
 	if (hit) return _touch(k, hit);
 
@@ -97,7 +152,11 @@ export async function hlBlock(
 
 	try {
 		const ansi = normalizeShikiContrast(
-			hl.highlight(code, { language: hljsLang, ignoreIllegals: true }),
+			hl.highlight(code, {
+				language: hljsLang,
+				ignoreIllegals: true,
+				theme: buildHighlightTheme(theme),
+			}),
 		);
 		const out = (ansi.endsWith("\n") ? ansi.slice(0, -1) : ansi).split("\n");
 		return _touch(k, out);

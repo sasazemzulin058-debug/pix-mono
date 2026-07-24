@@ -71,17 +71,23 @@ Configuration is read from **`~/.pi/agent/pix.json`** (the unified config file h
 ```jsonc
 {
   "pretty": {
-    "syntaxTheme": "monokai",       // syntax-highlight theme
     "icons": "nerd",          // nerd | unicode | ascii
-    "maxPreviewLines": 50,
-    "diffColors": true
+    "maxPreviewLines": 80,
+    "maxRenderLines": 150,
+    "maxHighlightChars": 80000,
+    "cacheLimit": 128,
+    "diff": {
+      "splitMinWidth": 150,
+      "splitMinCodeWidth": 60
+    }
   }
 }
 ```
 
+Syntax highlighting, diffs, and tool surfaces use the active Pi theme. Color overrides do not live in `pix.json`.
+
 ### Environment Variables (override `pix.json`)
 
-- `PRETTY_THEME` — color theme for syntax highlighting
 - `PRETTY_MAX_HL_CHARS` — max characters to highlight (default: 80000)
 - `PRETTY_MAX_PREVIEW_LINES` — max lines in preview output
 - `PRETTY_CACHE_LIMIT` — FFF cache size limit

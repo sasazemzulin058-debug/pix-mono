@@ -1,120 +1,102 @@
 import { basename, extname } from "node:path";
-
-import { FG_BLUE, FG_DIM, RST } from "./ansi.js";
+import type { FgTheme } from "./types.js";
 
 const ICONS_MODE = (process.env.PRETTY_ICONS ?? "nerd").toLowerCase();
-
 const USE_ICONS = ICONS_MODE !== "none" && ICONS_MODE !== "off";
 
-// Nerd Font codepoints + ANSI color per file type
-const NF_DIR = `${FG_BLUE}\ue5ff${RST}`; // folder
+interface IconSpec {
+	glyph: string;
+	color: string;
+}
 
-const NF_DEFAULT = `${FG_DIM}\uf15b${RST}`; // generic file
-
-const EXT_ICON: Record<string, string> = {
-	// TypeScript / JavaScript
-	ts: `\x1b[38;2;49;120;198m\ue628${RST}`, // blue
-	tsx: `\x1b[38;2;49;120;198m\ue7ba${RST}`, // react blue
-	js: `\x1b[38;2;241;224;90m\ue74e${RST}`, // yellow
-	jsx: `\x1b[38;2;97;218;251m\ue7ba${RST}`, // react cyan
-	mjs: `\x1b[38;2;241;224;90m\ue74e${RST}`,
-	cjs: `\x1b[38;2;241;224;90m\ue74e${RST}`,
-
-	// Systems / Backend
-	py: `\x1b[38;2;55;118;171m\ue73c${RST}`, // python blue
-	rs: `\x1b[38;2;222;165;132m\ue7a8${RST}`, // rust orange
-	go: `\x1b[38;2;0;173;216m\ue724${RST}`, // go cyan
-	java: `\x1b[38;2;204;62;68m\ue738${RST}`, // java red
-	swift: `\x1b[38;2;255;172;77m\ue755${RST}`, // swift orange
-	rb: `\x1b[38;2;204;52;45m\ue739${RST}`, // ruby red
-	kt: `\x1b[38;2;126;103;200m\ue634${RST}`, // kotlin purple
-	c: `\x1b[38;2;85;154;211m\ue61e${RST}`, // c blue
-	cpp: `\x1b[38;2;85;154;211m\ue61d${RST}`, // cpp blue
-	h: `\x1b[38;2;140;160;185m\ue61e${RST}`, // header muted
-	hpp: `\x1b[38;2;140;160;185m\ue61d${RST}`,
-	cs: `\x1b[38;2;104;33;122m\ue648${RST}`, // c# purple
-
-	// Web
-	html: `\x1b[38;2;228;77;38m\ue736${RST}`, // html orange
-	css: `\x1b[38;2;66;165;245m\ue749${RST}`, // css blue
-	scss: `\x1b[38;2;207;100;154m\ue749${RST}`, // scss pink
-	less: `\x1b[38;2;66;165;245m\ue749${RST}`,
-	vue: `\x1b[38;2;65;184;131m\ue6a0${RST}`, // vue green
-	svelte: `\x1b[38;2;255;62;0m\ue697${RST}`, // svelte red-orange
-
-	// Config / Data
-	json: `\x1b[38;2;241;224;90m\ue60b${RST}`, // json yellow
-	jsonc: `\x1b[38;2;241;224;90m\ue60b${RST}`,
-	yaml: `\x1b[38;2;160;116;196m\ue6a8${RST}`, // yaml purple
-	yml: `\x1b[38;2;160;116;196m\ue6a8${RST}`,
-	toml: `\x1b[38;2;160;116;196m\ue6b2${RST}`, // toml purple
-	xml: `\x1b[38;2;228;77;38m\ue619${RST}`, // xml orange
-	sql: `\x1b[38;2;218;218;218m\ue706${RST}`, // sql gray
-
-	// Markdown / Docs
-	md: `\x1b[38;2;66;165;245m\ue73e${RST}`, // markdown blue
-	mdx: `\x1b[38;2;66;165;245m\ue73e${RST}`,
-
-	// Shell / Scripts
-	sh: `\x1b[38;2;137;180;130m\ue795${RST}`, // shell green
-	bash: `\x1b[38;2;137;180;130m\ue795${RST}`,
-	zsh: `\x1b[38;2;137;180;130m\ue795${RST}`,
-	fish: `\x1b[38;2;137;180;130m\ue795${RST}`,
-	lua: `\x1b[38;2;81;160;207m\ue620${RST}`, // lua blue
-	php: `\x1b[38;2;137;147;186m\ue73d${RST}`, // php purple
-	dart: `\x1b[38;2;87;182;240m\ue798${RST}`, // dart blue
-
-	// Images
-	png: `\x1b[38;2;160;116;196m\uf1c5${RST}`,
-	jpg: `\x1b[38;2;160;116;196m\uf1c5${RST}`,
-	jpeg: `\x1b[38;2;160;116;196m\uf1c5${RST}`,
-	gif: `\x1b[38;2;160;116;196m\uf1c5${RST}`,
-	svg: `\x1b[38;2;255;180;50m\uf1c5${RST}`,
-	webp: `\x1b[38;2;160;116;196m\uf1c5${RST}`,
-	ico: `\x1b[38;2;160;116;196m\uf1c5${RST}`,
-
-	// Misc
-	lock: `\x1b[38;2;130;130;130m\uf023${RST}`, // lock gray
-	env: `\x1b[38;2;241;224;90m\ue615${RST}`, // env yellow
-	graphql: `\x1b[38;2;224;51;144m\ue662${RST}`, // graphql pink
-	dockerfile: `\x1b[38;2;56;152;236m\ue7b0${RST}`,
+const FILE = "\uf15b";
+const EXT_ICON: Record<string, IconSpec> = {
+	ts: { glyph: "\ue628", color: "syntaxType" },
+	tsx: { glyph: "\ue7ba", color: "syntaxType" },
+	js: { glyph: "\ue74e", color: "syntaxNumber" },
+	jsx: { glyph: "\ue7ba", color: "syntaxVariable" },
+	mjs: { glyph: "\ue74e", color: "syntaxNumber" },
+	cjs: { glyph: "\ue74e", color: "syntaxNumber" },
+	py: { glyph: "\ue73c", color: "syntaxFunction" },
+	rs: { glyph: "\ue7a8", color: "syntaxType" },
+	go: { glyph: "\ue724", color: "syntaxVariable" },
+	java: { glyph: "\ue738", color: "syntaxKeyword" },
+	swift: { glyph: "\ue755", color: "syntaxNumber" },
+	rb: { glyph: "\ue739", color: "syntaxKeyword" },
+	kt: { glyph: "\ue634", color: "syntaxType" },
+	c: { glyph: "\ue61e", color: "syntaxFunction" },
+	cpp: { glyph: "\ue61d", color: "syntaxFunction" },
+	h: { glyph: "\ue61e", color: "muted" },
+	hpp: { glyph: "\ue61d", color: "muted" },
+	cs: { glyph: "\ue648", color: "syntaxType" },
+	html: { glyph: "\ue736", color: "syntaxKeyword" },
+	css: { glyph: "\ue749", color: "syntaxFunction" },
+	scss: { glyph: "\ue749", color: "syntaxType" },
+	less: { glyph: "\ue749", color: "syntaxFunction" },
+	vue: { glyph: "\ue6a0", color: "syntaxString" },
+	svelte: { glyph: "\ue697", color: "syntaxKeyword" },
+	json: { glyph: "\ue60b", color: "syntaxNumber" },
+	jsonc: { glyph: "\ue60b", color: "syntaxNumber" },
+	yaml: { glyph: "\ue6a8", color: "syntaxType" },
+	yml: { glyph: "\ue6a8", color: "syntaxType" },
+	toml: { glyph: "\ue6b2", color: "syntaxType" },
+	xml: { glyph: "\ue619", color: "syntaxKeyword" },
+	sql: { glyph: "\ue706", color: "text" },
+	md: { glyph: "\ue73e", color: "accent" },
+	mdx: { glyph: "\ue73e", color: "accent" },
+	sh: { glyph: "\ue795", color: "syntaxString" },
+	bash: { glyph: "\ue795", color: "syntaxString" },
+	zsh: { glyph: "\ue795", color: "syntaxString" },
+	fish: { glyph: "\ue795", color: "syntaxString" },
+	lua: { glyph: "\ue620", color: "syntaxFunction" },
+	php: { glyph: "\ue73d", color: "syntaxType" },
+	dart: { glyph: "\ue798", color: "syntaxFunction" },
+	png: { glyph: "\uf1c5", color: "syntaxType" },
+	jpg: { glyph: "\uf1c5", color: "syntaxType" },
+	jpeg: { glyph: "\uf1c5", color: "syntaxType" },
+	gif: { glyph: "\uf1c5", color: "syntaxType" },
+	svg: { glyph: "\uf1c5", color: "syntaxNumber" },
+	webp: { glyph: "\uf1c5", color: "syntaxType" },
+	ico: { glyph: "\uf1c5", color: "syntaxType" },
+	lock: { glyph: "\uf023", color: "muted" },
+	env: { glyph: "\ue615", color: "syntaxNumber" },
+	graphql: { glyph: "\ue662", color: "syntaxType" },
+	dockerfile: { glyph: "\ue7b0", color: "syntaxFunction" },
 };
 
-const NAME_ICON: Record<string, string> = {
-	"package.json": `\x1b[38;2;137;180;130m\ue71e${RST}`, // npm green
-	"package-lock.json": `\x1b[38;2;130;130;130m\ue71e${RST}`, // npm gray
-	"tsconfig.json": `\x1b[38;2;49;120;198m\ue628${RST}`, // ts blue
-	"biome.json": `\x1b[38;2;96;165;250m\ue615${RST}`, // config blue
-	".gitignore": `\x1b[38;2;222;165;132m\ue702${RST}`, // git orange
-	".git": `\x1b[38;2;222;165;132m\ue702${RST}`,
-	".env": `\x1b[38;2;241;224;90m\ue615${RST}`, // env yellow
-	".envrc": `\x1b[38;2;241;224;90m\ue615${RST}`,
-	dockerfile: `\x1b[38;2;56;152;236m\ue7b0${RST}`, // docker blue
-	makefile: `\x1b[38;2;130;130;130m\ue615${RST}`, // make gray
-	gnumakefile: `\x1b[38;2;130;130;130m\ue615${RST}`,
-	"readme.md": `\x1b[38;2;66;165;245m\ue73e${RST}`, // readme blue
-	license: `\x1b[38;2;218;218;218m\ue60a${RST}`, // license white
-	"cargo.toml": `\x1b[38;2;222;165;132m\ue7a8${RST}`, // rust
-	"go.mod": `\x1b[38;2;0;173;216m\ue724${RST}`, // go
-	"pyproject.toml": `\x1b[38;2;55;118;171m\ue73c${RST}`, // python
+const NAME_ICON: Record<string, IconSpec> = {
+	"package.json": { glyph: "\ue71e", color: "syntaxString" },
+	"package-lock.json": { glyph: "\ue71e", color: "muted" },
+	"tsconfig.json": { glyph: "\ue628", color: "syntaxType" },
+	"biome.json": { glyph: "\ue615", color: "syntaxFunction" },
+	".gitignore": { glyph: "\ue702", color: "syntaxType" },
+	".git": { glyph: "\ue702", color: "syntaxType" },
+	".env": { glyph: "\ue615", color: "syntaxNumber" },
+	".envrc": { glyph: "\ue615", color: "syntaxNumber" },
+	dockerfile: { glyph: "\ue7b0", color: "syntaxFunction" },
+	makefile: { glyph: "\ue615", color: "muted" },
+	gnumakefile: { glyph: "\ue615", color: "muted" },
+	"readme.md": { glyph: "\ue73e", color: "accent" },
+	license: { glyph: "\ue60a", color: "text" },
+	"cargo.toml": { glyph: "\ue7a8", color: "syntaxType" },
+	"go.mod": { glyph: "\ue724", color: "syntaxVariable" },
+	"pyproject.toml": { glyph: "\ue73c", color: "syntaxFunction" },
 };
 
-export function fileIcon(fp: string): string {
+function paint(spec: IconSpec, theme?: FgTheme): string {
+	return theme ? theme.fg(spec.color, spec.glyph) : spec.glyph;
+}
+
+/** File icon whose color is derived from the active Pi theme when available. */
+export function fileIcon(fp: string, theme?: FgTheme): string {
 	if (!USE_ICONS) return "";
 	const base = basename(fp).toLowerCase();
-	if (NAME_ICON[base]) return `${NAME_ICON[base]} `;
 	const ext = extname(fp).slice(1).toLowerCase();
-	return EXT_ICON[ext] ? `${EXT_ICON[ext]} ` : `${NF_DEFAULT} `;
+	const spec = NAME_ICON[base] ?? EXT_ICON[ext] ?? { glyph: FILE, color: "muted" };
+	return `${paint(spec, theme)} `;
 }
 
-export function dirIcon(): string {
-	return USE_ICONS ? `${NF_DIR} ` : "";
+/** Directory icon whose color is derived from the active Pi theme. */
+export function dirIcon(theme?: FgTheme): string {
+	return USE_ICONS ? `${paint({ glyph: "\ue5ff", color: "accent" }, theme)} ` : "";
 }
-
-// ---------------------------------------------------------------------------
-// cli-highlight ANSI cache
-//
-// highlight.js uses different language ids than shiki for a few entries
-// (no tsx/jsx grammar, jsonc, mdx, make, etc.). Map the shiki-style ids the
-// EXT_LANG table produces onto highlight.js-supported ids.
-// ---------------------------------------------------------------------------

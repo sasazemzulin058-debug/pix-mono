@@ -14,7 +14,7 @@ import { BG_BASE, BOLD, FG_DIM, FG_LNUM, FG_RULE, RST } from "./ansi.js";
 import { MAX_HL_CHARS, MAX_RENDER_LINES, WORD_DIFF_MIN_SIM } from "./config.js";
 import type { DiffLine, ParsedDiff } from "./diff.js";
 import { hlBlock } from "./highlight.js";
-import type { BundledLanguage } from "./types.js";
+import type { BundledLanguage, FgTheme } from "./types.js";
 import { termW as utilsTermW } from "./utils.js";
 
 // ---------------------------------------------------------------------------
@@ -26,59 +26,22 @@ function envInt(name: string, fallback: number): number {
 	return Number.isFinite(v) ? v : fallback;
 }
 
-function envFg(name: string, fallback: string): string {
-	const hex = process.env[name];
-	if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return fallback;
-	const r = Number.parseInt(hex.slice(1, 3), 16);
-	const g = Number.parseInt(hex.slice(3, 5), 16);
-	const b = Number.parseInt(hex.slice(5, 7), 16);
-	return `\x1b[38;2;${r};${g};${b}m`;
-}
-
-function envBg(name: string, fallback: string): string {
-	const hex = process.env[name];
-	if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return fallback;
-	const r = Number.parseInt(hex.slice(1, 3), 16);
-	const g = Number.parseInt(hex.slice(3, 5), 16);
-	const b = Number.parseInt(hex.slice(5, 7), 16);
-	return `\x1b[48;2;${r};${g};${b}m`;
-}
-
 // ---------------------------------------------------------------------------
-// Diff-specific ANSI (override via env → pix.json → hardcoded)
+// Diff-specific ANSI. Theme-backed colors are resolved per render; these
+// constants are readable fallbacks for hosts that do not expose raw theme ANSI.
 // ---------------------------------------------------------------------------
 
 const DIM = "\x1b[2m";
-
-function hexToBg(hex: string): string {
-	if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return "";
-	const r = Number.parseInt(hex.slice(1, 3), 16);
-	const g = Number.parseInt(hex.slice(3, 5), 16);
-	const b = Number.parseInt(hex.slice(5, 7), 16);
-	return `\x1b[48;2;${r};${g};${b}m`;
-}
-
-function hexToFg(hex: string): string {
-	if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return "";
-	const r = Number.parseInt(hex.slice(1, 3), 16);
-	const g = Number.parseInt(hex.slice(3, 5), 16);
-	const b = Number.parseInt(hex.slice(5, 7), 16);
-	return `\x1b[38;2;${r};${g};${b}m`;
-}
-
 const dc = pixConfig().pretty.diff;
 
-// Subtle diff backgrounds — muted tones to let syntax fg shine through.
-// Precedence: env → pix.json → hardcoded default
-const BG_ADD = envBg("DIFF_BG_ADD", hexToBg(dc.bgAdd) || "\x1b[48;2;22;38;32m");
-const BG_DEL = envBg("DIFF_BG_DEL", hexToBg(dc.bgDel) || "\x1b[48;2;45;25;25m");
-const BG_ADD_W = envBg("DIFF_BG_ADD_HL", hexToBg(dc.bgAddHighlight) || "\x1b[48;2;35;75;50m");
-const BG_DEL_W = envBg("DIFF_BG_DEL_HL", hexToBg(dc.bgDelHighlight) || "\x1b[48;2;80;35;35m");
-const BG_GUTTER_ADD = envBg("DIFF_BG_GUTTER_ADD", hexToBg(dc.bgGutterAdd) || "\x1b[48;2;18;32;26m");
-const BG_GUTTER_DEL = envBg("DIFF_BG_GUTTER_DEL", hexToBg(dc.bgGutterDel) || "\x1b[48;2;38;22;22m");
-
-const FG_ADD = envFg("DIFF_FG_ADD", hexToFg(dc.fgAdd) || "\x1b[38;2;100;180;120m");
-const FG_DEL = envFg("DIFF_FG_DEL", hexToFg(dc.fgDel) || "\x1b[38;2;200;100;100m");
+const FALLBACK_BG_ADD = "\x1b[48;2;22;38;32m";
+const FALLBACK_BG_DEL = "\x1b[48;2;45;25;25m";
+const FALLBACK_BG_ADD_W = "\x1b[48;2;35;75;50m";
+const FALLBACK_BG_DEL_W = "\x1b[48;2;80;35;35m";
+const FALLBACK_BG_GUTTER_ADD = "\x1b[48;2;18;32;26m";
+const FALLBACK_BG_GUTTER_DEL = "\x1b[48;2;38;22;22m";
+const FG_ADD = "\x1b[38;2;100;180;120m";
+const FG_DEL = "\x1b[38;2;200;100;100m";
 const FG_STRIPE = "\x1b[38;2;40;40;40m"; // diagonal stripes on filler cells
 
 const BORDER_BAR = "▌";
@@ -113,12 +76,26 @@ export interface DiffColors {
 	fgAdd: string;
 	fgDel: string;
 	fgCtx: string;
+	/** Active Pi theme, forwarded to syntax highlighting. */
+	theme?: FgTheme;
+	bgAdd: string;
+	bgDel: string;
+	bgAddHighlight: string;
+	bgDelHighlight: string;
+	bgGutterAdd: string;
+	bgGutterDel: string;
 }
 
 export const DEFAULT_DIFF_COLORS: DiffColors = {
 	fgAdd: FG_ADD,
 	fgDel: FG_DEL,
 	fgCtx: FG_DIM,
+	bgAdd: FALLBACK_BG_ADD,
+	bgDel: FALLBACK_BG_DEL,
+	bgAddHighlight: FALLBACK_BG_ADD_W,
+	bgDelHighlight: FALLBACK_BG_DEL_W,
+	bgGutterAdd: FALLBACK_BG_GUTTER_ADD,
+	bgGutterDel: FALLBACK_BG_GUTTER_DEL,
 };
 
 // --- contrast helpers -------------------------------------------------------
@@ -171,23 +148,53 @@ function ensureContrast(fg: string, bgSeq: string, min = 3): string {
  *
  *  Theme hue is preserved, but each add/del fg is contrast-checked against the
  *  gutter bg it is painted on and lifted if it would render too dark to read. */
-export function resolveDiffColors(theme?: { getFgAnsi?: (key: string) => string }): DiffColors {
-	if (!theme?.getFgAnsi) return DEFAULT_DIFF_COLORS;
+type DiffTheme = {
+	fg?: FgTheme["fg"];
+	getFgAnsi?: (key: string) => string;
+	getBgAnsi?: (key: string) => string;
+};
+
+function themeFg(theme: DiffTheme, key: string, fallback: string): string {
 	try {
-		return {
-			fgAdd: ensureContrast(theme.getFgAnsi("toolDiffAdded") || FG_ADD, BG_GUTTER_ADD),
-			fgDel: ensureContrast(theme.getFgAnsi("toolDiffRemoved") || FG_DEL, BG_GUTTER_DEL),
-			fgCtx: theme.getFgAnsi("toolDiffContext") || FG_DIM,
-		};
+		return theme.getFgAnsi?.(key) || fallback;
 	} catch {
-		return DEFAULT_DIFF_COLORS;
+		return fallback;
 	}
 }
 
+function tintedBackground(fg: string, strength: number, fallback: string): string {
+	const rgb = parseAnsiRgb(fg, "38");
+	if (!rgb) return fallback;
+	const [r, g, b] = rgb.map((channel) => Math.round(channel * strength)) as Rgb;
+	return `\x1b[48;2;${r};${g};${b}m`;
+}
+
+export function resolveDiffColors(theme?: DiffTheme): DiffColors {
+	if (!theme) return DEFAULT_DIFF_COLORS;
+	const rawFgAdd = themeFg(theme, "toolDiffAdded", FG_ADD);
+	const rawFgDel = themeFg(theme, "toolDiffRemoved", FG_DEL);
+	const bgAdd = tintedBackground(rawFgAdd, 0.2, FALLBACK_BG_ADD);
+	const bgDel = tintedBackground(rawFgDel, 0.2, FALLBACK_BG_DEL);
+	const bgGutterAdd = tintedBackground(rawFgAdd, 0.15, FALLBACK_BG_GUTTER_ADD);
+	const bgGutterDel = tintedBackground(rawFgDel, 0.15, FALLBACK_BG_GUTTER_DEL);
+	return {
+		fgAdd: ensureContrast(rawFgAdd, bgGutterAdd),
+		fgDel: ensureContrast(rawFgDel, bgGutterDel),
+		fgCtx: themeFg(theme, "toolDiffContext", FG_DIM),
+		theme: typeof theme.fg === "function" ? (theme as FgTheme) : undefined,
+		bgAdd,
+		bgDel,
+		bgAddHighlight: tintedBackground(rawFgAdd, 0.35, FALLBACK_BG_ADD_W),
+		bgDelHighlight: tintedBackground(rawFgDel, 0.35, FALLBACK_BG_DEL_W),
+		bgGutterAdd,
+		bgGutterDel,
+	};
+}
+
 /** Stable cache key for the resolved diff theme colors. */
-export function diffThemeCacheKey(theme?: { getFgAnsi?: (key: string) => string }): string {
-	const c = resolveDiffColors(theme);
-	return `${c.fgAdd}|${c.fgDel}|${c.fgCtx}|${BG_BASE}`;
+export function diffThemeCacheKey(theme?: DiffTheme): string {
+	const { theme: _theme, ...colors } = resolveDiffColors(theme);
+	return `${Object.values(colors).join("|")}|${BG_BASE}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -371,12 +378,27 @@ function rule(w: number): string {
 	return `${BG_BASE}${FG_RULE}${"─".repeat(w)}${RST}`;
 }
 
-/** Compact "+a -d" summary string (or "no changes"). */
+/** Compact plain "+a -d" summary for persisted renderer details. */
 export function summarize(a: number, d: number): string {
-	const p: string[] = [];
-	if (a > 0) p.push(`${FG_ADD}+${a}${RST}`);
-	if (d > 0) p.push(`${FG_DEL}-${d}${RST}`);
-	return p.length ? p.join(" ") : `${FG_DIM}no changes${RST}`;
+	const parts: string[] = [];
+	if (a > 0) parts.push(`+${a}`);
+	if (d > 0) parts.push(`-${d}`);
+	return parts.length ? parts.join(" ") : "no changes";
+}
+
+/** Apply active Pi theme colors to a plain diff summary at render time. */
+export function renderDiffSummary(summary: string, theme: FgTheme): string {
+	if (summary === "no changes") return theme.fg("toolDiffContext", summary);
+	return summary
+		.split(" ")
+		.map((part) =>
+			part.startsWith("+")
+				? theme.fg("toolDiffAdded", part)
+				: part.startsWith("-")
+					? theme.fg("toolDiffRemoved", part)
+					: part,
+		)
+		.join(" ");
 }
 
 // ---------------------------------------------------------------------------
@@ -467,13 +489,17 @@ function injectBg(
 }
 
 /** Simple word diff (no syntax hl) — fallback when highlighting is unavailable. */
-function plainWordDiff(oldText: string, newText: string): { old: string; new: string } {
+function plainWordDiff(
+	oldText: string,
+	newText: string,
+	dc: DiffColors,
+): { old: string; new: string } {
 	const parts = Diff.diffWords(oldText, newText);
 	let o = "";
 	let n = "";
 	for (const p of parts) {
-		if (p.removed) o += `${BG_DEL_W}${p.value}${RST}${BG_DEL}`;
-		else if (p.added) n += `${BG_ADD_W}${p.value}${RST}${BG_ADD}`;
+		if (p.removed) o += `${dc.bgDelHighlight}${p.value}${RST}${dc.bgDel}`;
+		else if (p.added) n += `${dc.bgAddHighlight}${p.value}${RST}${dc.bgAdd}`;
 		else {
 			o += p.value;
 			n += p.value;
@@ -548,8 +574,8 @@ export async function renderUnified(
 	}
 	const [oldHL, newHL] = canHL
 		? await Promise.all([
-				hlBlock(oldSrc.join("\n"), language),
-				hlBlock(newSrc.join("\n"), language),
+				hlBlock(oldSrc.join("\n"), language, dc.theme),
+				hlBlock(newSrc.join("\n"), language, dc.theme),
 			])
 		: [oldSrc, newSrc];
 
@@ -634,42 +660,42 @@ export async function renderUnified(
 		if (isPaired && wdBalanced && wd.similarity >= WORD_DIFF_MIN_SIM && canHL) {
 			const del0 = at(dels, 0);
 			const add0 = at(adds, 0);
-			const delBody = injectBg(del0.hl, wd.oldRanges, BG_DEL, BG_DEL_W);
-			const addBody = injectBg(add0.hl, wd.newRanges, BG_ADD, BG_ADD_W);
-			emitRow(del0.l.oldNum, "-", BG_GUTTER_DEL, `${dc.fgDel}${BOLD}`, delBody, BG_DEL);
-			emitRow(add0.l.newNum, "+", BG_GUTTER_ADD, `${dc.fgAdd}${BOLD}`, addBody, BG_ADD);
+			const delBody = injectBg(del0.hl, wd.oldRanges, dc.bgDel, dc.bgDelHighlight);
+			const addBody = injectBg(add0.hl, wd.newRanges, dc.bgAdd, dc.bgAddHighlight);
+			emitRow(del0.l.oldNum, "-", dc.bgGutterDel, `${dc.fgDel}${BOLD}`, delBody, dc.bgDel);
+			emitRow(add0.l.newNum, "+", dc.bgGutterAdd, `${dc.fgAdd}${BOLD}`, addBody, dc.bgAdd);
 			continue;
 		}
 		if (isPaired && wdBalanced && wd.similarity >= WORD_DIFF_MIN_SIM && !canHL) {
 			const del0 = at(dels, 0);
 			const add0 = at(adds, 0);
-			const pwd = plainWordDiff(del0.l.content, add0.l.content);
+			const pwd = plainWordDiff(del0.l.content, add0.l.content, dc);
 			emitRow(
 				del0.l.oldNum,
 				"-",
-				BG_GUTTER_DEL,
+				dc.bgGutterDel,
 				`${dc.fgDel}${BOLD}`,
-				`${BG_DEL}${pwd.old}`,
-				BG_DEL,
+				`${dc.bgDel}${pwd.old}`,
+				dc.bgDel,
 			);
 			emitRow(
 				add0.l.newNum,
 				"+",
-				BG_GUTTER_ADD,
+				dc.bgGutterAdd,
 				`${dc.fgAdd}${BOLD}`,
-				`${BG_ADD}${pwd.new}`,
-				BG_ADD,
+				`${dc.bgAdd}${pwd.new}`,
+				dc.bgAdd,
 			);
 			continue;
 		}
 
 		for (const d of dels) {
-			const body = canHL ? `${BG_DEL}${d.hl}` : `${BG_DEL}${d.l.content}`;
-			emitRow(d.l.oldNum, "-", BG_GUTTER_DEL, `${dc.fgDel}${BOLD}`, body, BG_DEL);
+			const body = canHL ? `${dc.bgDel}${d.hl}` : `${dc.bgDel}${d.l.content}`;
+			emitRow(d.l.oldNum, "-", dc.bgGutterDel, `${dc.fgDel}${BOLD}`, body, dc.bgDel);
 		}
 		for (const a of adds) {
-			const body = canHL ? `${BG_ADD}${a.hl}` : `${BG_ADD}${a.l.content}`;
-			emitRow(a.l.newNum, "+", BG_GUTTER_ADD, `${dc.fgAdd}${BOLD}`, body, BG_ADD);
+			const body = canHL ? `${dc.bgAdd}${a.hl}` : `${dc.bgAdd}${a.l.content}`;
+			emitRow(a.l.newNum, "+", dc.bgGutterAdd, `${dc.fgAdd}${BOLD}`, body, dc.bgAdd);
 		}
 	}
 
@@ -740,8 +766,8 @@ export async function renderSplit(
 	}
 	const [leftHL, rightHL] = canHL
 		? await Promise.all([
-				hlBlock(leftSrc.join("\n"), language),
-				hlBlock(rightSrc.join("\n"), language),
+				hlBlock(leftSrc.join("\n"), language, dc.theme),
+				hlBlock(rightSrc.join("\n"), language, dc.theme),
 			])
 		: [leftSrc, rightSrc];
 
@@ -776,8 +802,8 @@ export async function renderSplit(
 
 		const isDel = line.type === "del";
 		const isAdd = line.type === "add";
-		const gBg = isDel ? BG_GUTTER_DEL : isAdd ? BG_GUTTER_ADD : BG_BASE;
-		const cBg = isDel ? BG_DEL : isAdd ? BG_ADD : BG_BASE;
+		const gBg = isDel ? dc.bgGutterDel : isAdd ? dc.bgGutterAdd : BG_BASE;
+		const cBg = isDel ? dc.bgDel : isAdd ? dc.bgAdd : BG_BASE;
 		const sFg = isDel ? dc.fgDel : isAdd ? dc.fgAdd : dc.fgCtx;
 		const sign = isDel ? "-" : isAdd ? "+" : " ";
 		const num = isDel
@@ -793,7 +819,7 @@ export async function renderSplit(
 
 		let body: string;
 		if (ranges && ranges.length > 0) {
-			body = injectBg(hl, ranges, cBg, isDel ? BG_DEL_W : BG_ADD_W);
+			body = injectBg(hl, ranges, cBg, isDel ? dc.bgDelHighlight : dc.bgAddHighlight);
 		} else if (isDel || isAdd) {
 			body = `${cBg}${hl}`;
 		} else {
@@ -828,7 +854,7 @@ export async function renderSplit(
 			lResult = halfBuild(leftLine, lhl, wd.oldRanges, "left");
 			rResult = halfBuild(rightLine, rhl, wd.newRanges, "right");
 		} else if (paired && wd && wd.similarity >= WORD_DIFF_MIN_SIM && !canHL) {
-			const pwd = plainWordDiff(leftLine.content, rightLine.content);
+			const pwd = plainWordDiff(leftLine.content, rightLine.content, dc);
 			lI++;
 			rI++;
 			lResult = halfBuild(leftLine, pwd.old, null, "left");

@@ -6,7 +6,7 @@ import type {
 
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { type CollapseState, tickCollapse } from "@xynogen/pix-data/collapse";
-import { BG_BASE, FG_DIM, RST } from "@xynogen/pix-pretty/ansi";
+import { BG_BASE, FG_DIM, RST, resolveBaseBackground } from "@xynogen/pix-pretty/ansi";
 import { MAX_PREVIEW_LINES } from "@xynogen/pix-pretty/config";
 import type { ToolContext } from "@xynogen/pix-pretty/context";
 import { renderBashOutput } from "@xynogen/pix-pretty/renderers";
@@ -104,6 +104,7 @@ export function registerBashTool(
 		},
 
 		renderCall(args: BashParams, theme: ThemeLike, renderCtx: RenderContextLike) {
+			resolveBaseBackground(theme);
 			const cmd = args.command ?? "";
 			const displayCmdRaw = cmd.trim();
 			const text = renderCtx.lastComponent ?? new TextComponent("", 0, 0);
@@ -139,6 +140,7 @@ export function registerBashTool(
 			theme: ThemeLike,
 			renderCtx: RenderContextLike,
 		) {
+			resolveBaseBackground(theme);
 			const text = renderCtx.lastComponent ?? new TextComponent("", 0, 0);
 			const d = result.details as Record<string, unknown> | undefined;
 			const isPartial = (_opt as { isPartial?: boolean } | undefined)?.isPartial === true;
@@ -189,7 +191,7 @@ export function registerBashTool(
 				const normalizedText = normalizeLineEndings(d.text as string)
 					.replace(/\n{3,}/g, "\n\n")
 					.replace(/^\n+|\n+$/g, "");
-				const { summary } = renderBashOutput(normalizedText, d.exitCode as number | null);
+				const { summary } = renderBashOutput(normalizedText, d.exitCode as number | null, theme);
 				const lines = normalizedText ? normalizedText.split("\n") : [];
 				const lineCount = lines.length;
 				const lineInfo = lineCount > 1 ? `  ${FG_DIM}(${lineCount} lines)${RST}` : "";

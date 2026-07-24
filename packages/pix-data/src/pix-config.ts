@@ -1,8 +1,9 @@
 /**
  * pix-config.ts — unified config loader for ~/.pi/agent/pix.json
  *
- * Single source of truth for all pix-* configuration. The file is read once
- * on first access and cached in-process. A `reloadPixConfig()` function is
+ * Shared configuration for cross-package Pix surfaces. Package-owned runtime
+ * state (for example optimizer toggles) stays with its package. The file is
+ * read once on first access and cached in-process. A `reloadPixConfig()` is
  * exposed for slash-commands that edit the file live.
  *
  * Design:
@@ -28,17 +29,11 @@ export interface CollapseConfig {
 	tools: Partial<Record<string, boolean>>;
 }
 
-export interface DiffColors {
+export interface DiffConfig {
+	/** Minimum terminal width before the renderer considers a split diff. */
 	splitMinWidth: number;
+	/** Minimum code width per pane before falling back to a unified diff. */
 	splitMinCodeWidth: number;
-	bgAdd: string;
-	bgDel: string;
-	bgAddHighlight: string;
-	bgDelHighlight: string;
-	bgGutterAdd: string;
-	bgGutterDel: string;
-	fgAdd: string;
-	fgDel: string;
 }
 
 /** How `ls` output is rendered: `"grid"` (horizontal columns) or `"tree"` (vertical tree view). */
@@ -52,14 +47,7 @@ export interface PrettyConfig {
 	maxRenderLines: number;
 	maxHighlightChars: number;
 	cacheLimit: number;
-	diff: DiffColors;
-}
-
-export interface OptimizerConfig {
-	caveman: string;
-	rtk: string;
-	toon: string;
-	ponytail: string;
+	diff: DiffConfig;
 }
 
 export interface GateRuleConfig {
@@ -78,24 +66,27 @@ export interface GateConfig {
 export interface PixConfig {
 	collapse: CollapseConfig;
 	pretty: PrettyConfig;
-	optimizer: OptimizerConfig;
 	gate: GateConfig;
 }
 
 // ── Defaults ─────────────────────────────────────────────────────────────────
 
-const DEFAULT_DIFF: DiffColors = {
+const DEFAULT_DIFF: DiffConfig = {
 	splitMinWidth: 150,
 	splitMinCodeWidth: 60,
-	bgAdd: "#163826",
-	bgDel: "#2d1919",
-	bgAddHighlight: "#234b32",
-	bgDelHighlight: "#502323",
-	bgGutterAdd: "#12201a",
-	bgGutterDel: "#261616",
-	fgAdd: "#64b478",
-	fgDel: "#c86464",
 };
+
+const LEGACY_PRETTY_COLOR_KEYS = ["theme", "syntaxTheme", "diffColors"] as const;
+const LEGACY_DIFF_COLOR_KEYS = [
+	"bgAdd",
+	"bgDel",
+	"bgAddHighlight",
+	"bgDelHighlight",
+	"bgGutterAdd",
+	"bgGutterDel",
+	"fgAdd",
+	"fgDel",
+] as const;
 
 const DEFAULT_COLLAPSE: CollapseConfig = {
 	enabled: true,
@@ -113,13 +104,6 @@ const DEFAULT_PRETTY: PrettyConfig = {
 	diff: { ...DEFAULT_DIFF },
 };
 
-const DEFAULT_OPTIMIZER: OptimizerConfig = {
-	caveman: "off",
-	rtk: "off",
-	toon: "off",
-	ponytail: "off",
-};
-
 const DEFAULT_GATE: GateConfig = {
 	disableDefaults: false,
 	autoApprove: [],
@@ -130,7 +114,6 @@ const DEFAULT_GATE: GateConfig = {
 export const DEFAULT_CONFIG: PixConfig = {
 	collapse: { ...DEFAULT_COLLAPSE },
 	pretty: { ...DEFAULT_PRETTY },
-	optimizer: { ...DEFAULT_OPTIMIZER },
 	gate: { ...DEFAULT_GATE },
 };
 
@@ -144,11 +127,11 @@ function configPath(): string | undefined {
 	return join(home, ".pi/agent", "pix.json");
 }
 
-/** Seed file written on first load so users have a reference to edit. */
+/** Create a sparse config file; resolved defaults stay in code, not on disk. */
 function seedConfigFile(p: string): void {
 	try {
 		mkdirSync(dirname(p), { recursive: true });
-		writeFileSync(p, `${JSON.stringify(DEFAULT_CONFIG, null, 2)}\n`, {
+		writeFileSync(p, "{}\n", {
 			flag: "wx", // exclusive create — no-op if file appeared between check and write
 		});
 	} catch {
@@ -208,20 +191,55 @@ function mergeCollapse(raw: unknown): CollapseConfig {
 	};
 }
 
-function mergeDiff(raw: unknown): DiffColors {
+function mergeDiff(raw: unknown): DiffConfig {
 	if (!isObj(raw)) return { ...DEFAULT_DIFF };
 	return {
 		splitMinWidth: num(raw.splitMinWidth, DEFAULT_DIFF.splitMinWidth),
 		splitMinCodeWidth: num(raw.splitMinCodeWidth, DEFAULT_DIFF.splitMinCodeWidth),
-		bgAdd: str(raw.bgAdd, DEFAULT_DIFF.bgAdd),
-		bgDel: str(raw.bgDel, DEFAULT_DIFF.bgDel),
-		bgAddHighlight: str(raw.bgAddHighlight, DEFAULT_DIFF.bgAddHighlight),
-		bgDelHighlight: str(raw.bgDelHighlight, DEFAULT_DIFF.bgDelHighlight),
-		bgGutterAdd: str(raw.bgGutterAdd, DEFAULT_DIFF.bgGutterAdd),
-		bgGutterDel: str(raw.bgGutterDel, DEFAULT_DIFF.bgGutterDel),
-		fgAdd: str(raw.fgAdd, DEFAULT_DIFF.fgAdd),
-		fgDel: str(raw.fgDel, DEFAULT_DIFF.fgDel),
 	};
+}
+
+/** Recursively remove values already supplied by the resolved defaults. */
+function removeDefaultEntries(
+	section: Record<string, unknown>,
+	defaults: Record<string, unknown>,
+): void {
+	for (const [key, defaultValue] of Object.entries(defaults)) {
+		const value = section[key];
+		if (isObj(value) && isObj(defaultValue)) {
+			const nested = { ...value };
+			removeDefaultEntries(nested, defaultValue);
+			if (Object.keys(nested).length > 0) section[key] = nested;
+			else delete section[key];
+		} else if (JSON.stringify(value) === JSON.stringify(defaultValue)) {
+			delete section[key];
+		}
+	}
+}
+
+/** Remove obsolete fields and default-valued noise before persisting pix.json. */
+function normalizePersistedConfig(raw: Record<string, unknown>): void {
+	delete raw.optimizer;
+	if (isObj(raw.pretty)) {
+		const pretty = { ...raw.pretty };
+		for (const key of LEGACY_PRETTY_COLOR_KEYS) delete pretty[key];
+		if (isObj(pretty.diff)) {
+			const diff = { ...pretty.diff };
+			for (const key of LEGACY_DIFF_COLOR_KEYS) delete diff[key];
+			if (Object.keys(diff).length > 0) pretty.diff = diff;
+			else delete pretty.diff;
+		}
+		raw.pretty = pretty;
+	}
+
+	const defaults = DEFAULT_CONFIG as unknown as Record<string, unknown>;
+	for (const key of ["collapse", "pretty", "gate"] as const) {
+		if (!isObj(raw[key]) || !isObj(defaults[key])) continue;
+		const section = { ...raw[key] };
+		removeDefaultEntries(section, defaults[key]);
+		if (Object.keys(section).length > 0) raw[key] = section;
+		else delete raw[key];
+	}
 }
 
 function lsStyle(v: unknown): LsStyle {
@@ -239,16 +257,6 @@ function mergePretty(raw: unknown): PrettyConfig {
 		maxHighlightChars: num(raw.maxHighlightChars, DEFAULT_PRETTY.maxHighlightChars),
 		cacheLimit: num(raw.cacheLimit, DEFAULT_PRETTY.cacheLimit),
 		diff: mergeDiff(raw.diff),
-	};
-}
-
-function mergeOptimizer(raw: unknown): OptimizerConfig {
-	if (!isObj(raw)) return { ...DEFAULT_OPTIMIZER };
-	return {
-		caveman: str(raw.caveman, DEFAULT_OPTIMIZER.caveman),
-		rtk: str(raw.rtk, DEFAULT_OPTIMIZER.rtk),
-		toon: str(raw.toon, DEFAULT_OPTIMIZER.toon),
-		ponytail: str(raw.ponytail, DEFAULT_OPTIMIZER.ponytail),
 	};
 }
 
@@ -273,7 +281,6 @@ function buildConfig(raw: Record<string, unknown>): PixConfig {
 	return {
 		collapse: mergeCollapse(raw.collapse),
 		pretty: mergePretty(raw.pretty),
-		optimizer: mergeOptimizer(raw.optimizer),
 		gate: mergeGate(raw.gate),
 	};
 }
@@ -353,6 +360,7 @@ export function savePixConfig(patch: Record<string, unknown>): PixConfig {
 				existing[key] = value;
 			}
 		}
+		normalizePersistedConfig(existing);
 		writeFileSync(p, `${JSON.stringify(existing, null, 2)}\n`);
 	} catch (err) {
 		console.warn("pix-config: save failed:", err);

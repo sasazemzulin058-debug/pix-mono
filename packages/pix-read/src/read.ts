@@ -4,7 +4,7 @@ import type {
 	ReadToolInput,
 } from "@earendil-works/pi-coding-agent";
 import { type CollapseState, tickCollapse } from "@xynogen/pix-data/collapse";
-import { FG_DIM, RST } from "@xynogen/pix-pretty/ansi";
+import { FG_DIM, RST, resolveBaseBackground } from "@xynogen/pix-pretty/ansi";
 import { MAX_PREVIEW_LINES } from "@xynogen/pix-pretty/config";
 import type { ToolContext } from "@xynogen/pix-pretty/context";
 import { fileIcon } from "@xynogen/pix-pretty/icons";
@@ -100,6 +100,7 @@ export function registerReadTool(
 		},
 
 		renderCall(args: ReadParams, theme: ThemeLike, renderCtx: RenderContextLike) {
+			resolveBaseBackground(theme);
 			const fp = args.path ?? "";
 			const text = renderCtx.lastComponent ?? new TextComponent("", 0, 0);
 			if (
@@ -124,6 +125,7 @@ export function registerReadTool(
 			theme: ThemeLike,
 			renderCtx: RenderContextLike,
 		) {
+			resolveBaseBackground(theme);
 			const text = renderCtx.lastComponent ?? new TextComponent("", 0, 0);
 			const d = result.details as Record<string, unknown> | undefined;
 			const isPartial = (_opt as { isPartial?: boolean } | undefined)?.isPartial === true;
@@ -176,7 +178,7 @@ export function registerReadTool(
 				const byteSize = Math.ceil(((d.data as string).length * 3) / 4);
 				text.setText(
 					fillToolBackground(
-						`  ${fileIcon(d.filePath as string)}${FG_DIM}${d.mimeType ?? "image"} · ${humanSize(byteSize)}${RST}`,
+						`  ${fileIcon(d.filePath as string, theme)}${theme.fg("dim", `${d.mimeType ?? "image"} · ${humanSize(byteSize)}`)}`,
 					),
 				);
 				return text;
@@ -190,7 +192,13 @@ export function registerReadTool(
 					renderCtx.state._rt = fillToolBackground(`  ${info}`);
 
 					const maxShow = renderCtx.expanded ? (d.lineCount as number) : MAX_PREVIEW_LINES;
-					renderFileContent(d.content as string, d.filePath as string, d.offset as number, maxShow)
+					renderFileContent(
+						d.content as string,
+						d.filePath as string,
+						d.offset as number,
+						maxShow,
+						theme,
+					)
 						.then((rendered: string) => {
 							if (renderCtx.state._rk !== key) return;
 							renderCtx.state._rt = fillToolBackground(`  ${info}\n${rendered}`);

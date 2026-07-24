@@ -1,6 +1,6 @@
 {
 	"name": "@xynogen/pix-sudo",
-	"version": "0.3.7",
+	"version": "0.3.8",
 	"description": "Pi tool — sudo_run with interactive PAM password prompt (PAM via sudo -S)",
 	"type": "module",
 	"main": "src/index.ts",
@@ -35,8 +35,8 @@
 	},
 	"dependencies": {
 		"typebox": "^1.1.38",
-		"@xynogen/pix-data": "^0.3.2",
-		"@xynogen/pix-pretty": "^1.7.18"
+		"@xynogen/pix-data": "^0.3.4",
+		"@xynogen/pix-pretty": "^1.7.22"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-coding-agent": "*",

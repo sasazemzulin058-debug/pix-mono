@@ -25,6 +25,14 @@ const THINKING_COLOR_KEYS = [
 	["thinkingXhigh", "error"],
 ] as const;
 
+const EXPRESSIVE_SYNTAX_KEYS = [
+	"syntaxVariable",
+	"syntaxString",
+	"syntaxNumber",
+	"syntaxType",
+	"syntaxPunctuation",
+] as const;
+
 function readTheme(name: (typeof THEMES)[number]) {
 	const themeFile = resolve(__dirname, `../themes/${name}.json`);
 	try {
@@ -55,6 +63,22 @@ describe("pix-themes", () => {
 			const theme = readTheme(name);
 			for (const [thinkingKey, semanticKey] of THINKING_COLOR_KEYS) {
 				expect(theme.colors[thinkingKey]).toBe(theme.colors[semanticKey]);
+			}
+		});
+
+		it(`${name} keeps common syntax roles visually distinct`, () => {
+			const theme = readTheme(name);
+			const resolved = EXPRESSIVE_SYNTAX_KEYS.map((key) => {
+				const value = theme.colors[key];
+				return theme.vars[value] ?? value;
+			});
+			expect(new Set(resolved).size).toBe(EXPRESSIVE_SYNTAX_KEYS.length);
+		});
+
+		it(`${name} provides themed tool surface backgrounds`, () => {
+			const theme = readTheme(name);
+			for (const key of ["toolPendingBg", "toolSuccessBg", "toolErrorBg"]) {
+				expect(theme.colors[key]).toBeTruthy();
 			}
 		});
 	}

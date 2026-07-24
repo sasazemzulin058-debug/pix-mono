@@ -1,11 +1,12 @@
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { getLsStyle } from "@xynogen/pix-data/pix-config";
 
-import { BOLD, FG_BLUE, FG_DIM, FG_GREEN, FG_RED, FG_RULE, FG_YELLOW, RST } from "./ansi.js";
+import { FG_DIM, FG_RULE, RST } from "./ansi.js";
 import { MAX_PREVIEW_LINES } from "./config.js";
 import { hlBlock } from "./highlight.js";
 import { dirIcon, fileIcon } from "./icons.js";
 import { lang } from "./lang.js";
+import type { FgTheme } from "./types.js";
 import { lnum, normalizeLineEndings, pluralize, rule, termW } from "./utils.js";
 
 /** Render syntax-highlighted file content with line numbers. */
@@ -14,13 +15,14 @@ export async function renderFileContent(
 	filePath: string,
 	offset = 1,
 	maxLines = MAX_PREVIEW_LINES,
+	theme?: FgTheme,
 ): Promise<string> {
 	const normalizedContent = normalizeLineEndings(content);
 	const lines = normalizedContent.split("\n");
 	const total = lines.length;
 	const show = lines.slice(0, maxLines);
 	const lg = lang(filePath);
-	const hl = await hlBlock(show.join("\n"), lg);
+	const hl = await hlBlock(show.join("\n"), lg, theme);
 
 	const tw = termW();
 	const startLine = offset;
@@ -50,14 +52,13 @@ export async function renderFileContent(
 export function renderBashOutput(
 	text: string,
 	exitCode: number | null,
+	theme?: FgTheme,
 ): { summary: string; body: string } {
 	const isOk = exitCode === 0;
-	const statusFg = isOk ? FG_GREEN : FG_RED;
 	const statusIcon = isOk ? "✓" : "✗";
-	const codeStr =
-		exitCode !== null
-			? `${statusFg}${statusIcon} exit ${exitCode}${RST}`
-			: `${FG_YELLOW}⚡ killed${RST}`;
+	const semantic = isOk ? "success" : "error";
+	const codeText = exitCode !== null ? `${statusIcon} exit ${exitCode}` : "⚡ killed";
+	const codeStr = theme ? theme.fg(exitCode !== null ? semantic : "warning", codeText) : codeText;
 
 	const lines = text.split("\n");
 	const maxShow = MAX_PREVIEW_LINES;
@@ -73,12 +74,14 @@ export function renderBashOutput(
 }
 
 /** Render ls output using the configured style (grid or tree). */
-export function renderTree(text: string, basePath: string): string {
-	return getLsStyle() === "tree" ? renderLsTree(text, basePath) : renderLsGrid(text, basePath);
+export function renderTree(text: string, basePath: string, theme?: FgTheme): string {
+	return getLsStyle() === "tree"
+		? renderLsTree(text, basePath, theme)
+		: renderLsGrid(text, basePath, theme);
 }
 
 /** Vertical tree view with connectors and icons. */
-function renderLsTree(text: string, _basePath: string): string {
+function renderLsTree(text: string, _basePath: string, theme?: FgTheme): string {
 	const lines = text.trim().split("\n").filter(Boolean);
 	if (!lines.length) return `${FG_DIM}(empty directory)${RST}`;
 
@@ -94,11 +97,10 @@ function renderLsTree(text: string, _basePath: string): string {
 
 		const isDir = entry.endsWith("/");
 		const name = isDir ? entry.slice(0, -1) : entry;
-		const icon = isDir ? dirIcon() : fileIcon(name);
-		const fg = isDir ? FG_BLUE + BOLD : "";
-		const reset = isDir ? RST : "";
+		const icon = isDir ? dirIcon(theme) : fileIcon(name, theme);
+		const displayName = isDir && theme ? theme.fg("accent", name) : name;
 
-		out.push(`${connector}${icon}${fg}${name}${reset}`);
+		out.push(`${connector}${icon}${displayName}`);
 	}
 
 	if (total > MAX_PREVIEW_LINES) {
@@ -111,7 +113,7 @@ function renderLsTree(text: string, _basePath: string): string {
 }
 
 /** Horizontal grid with icons (like eza/ls). */
-function renderLsGrid(text: string, _basePath: string): string {
+function renderLsGrid(text: string, _basePath: string, theme?: FgTheme): string {
 	const lines = text.trim().split("\n").filter(Boolean);
 	if (!lines.length) return `${FG_DIM}(empty directory)${RST}`;
 
@@ -126,10 +128,9 @@ function renderLsGrid(text: string, _basePath: string): string {
 		const entry = raw.trim();
 		const isDir = entry.endsWith("/");
 		const name = isDir ? entry.slice(0, -1) : entry;
-		const icon = isDir ? dirIcon() : fileIcon(name);
-		const fg = isDir ? FG_BLUE + BOLD : "";
-		const reset = isDir ? RST : "";
-		const cell = `${icon}${fg}${name}${reset}`;
+		const icon = isDir ? dirIcon(theme) : fileIcon(name, theme);
+		const displayName = isDir && theme ? theme.fg("accent", name) : name;
+		const cell = `${icon}${displayName}`;
 		cells.push(cell);
 		cellWidths.push(visibleWidth(cell));
 	}

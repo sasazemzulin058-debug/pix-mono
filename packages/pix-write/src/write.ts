@@ -7,11 +7,13 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 
 import { type CollapseState, tickCollapse } from "@xynogen/pix-data/collapse";
+import { resolveBaseBackground } from "@xynogen/pix-pretty/ansi";
 import { MAX_RENDER_LINES } from "@xynogen/pix-pretty/config";
 import type { ToolContext } from "@xynogen/pix-pretty/context";
 import { parseDiff } from "@xynogen/pix-pretty/diff";
 import {
 	diffThemeCacheKey,
+	renderDiffSummary,
 	renderSplit,
 	resolveDiffColors,
 	summarize,
@@ -104,6 +106,7 @@ export function registerWriteTool(
 			theme: ThemeLike,
 			renderCtx: RenderContextLike<WriteRenderState>,
 		) {
+			resolveBaseBackground(theme);
 			const fp = args?.path ?? args?.file_path ?? "";
 			const isNew = !fp || !existsSync(fp);
 			const label = isNew ? "create" : "write";
@@ -122,7 +125,7 @@ export function registerWriteTool(
 					renderCtx.state._previewKey = previewKey;
 					renderCtx.state._previewText = hdr;
 					const lg = lang(fp);
-					hlBlock(String(args.content), lg)
+					hlBlock(String(args.content), lg, theme)
 						.then((lines) => {
 							if (renderCtx.state._previewKey !== previewKey) return;
 							const maxShow = renderCtx.expanded ? lines.length : 16;
@@ -150,6 +153,7 @@ export function registerWriteTool(
 			theme: ThemeLike,
 			renderCtx: RenderContextLike<WriteRenderState>,
 		) {
+			resolveBaseBackground(theme);
 			const text = renderCtx.lastComponent ?? new TextComponent("", 0, 0);
 			const d = result.details as Record<string, unknown> | undefined;
 			const isPartial = _opt?.isPartial === true;
@@ -194,13 +198,15 @@ export function registerWriteTool(
 				if (renderCtx.toolCallId) trackInvalidator(renderCtx.toolCallId, renderCtx.invalidate);
 				if (renderCtx.state._wdk !== key) {
 					renderCtx.state._wdk = key;
-					renderCtx.state._wdt = `  ${d.summary}\n${theme.fg("muted", "  rendering diff…")}`;
+					const summary = renderDiffSummary(String(d.summary), theme);
+					renderCtx.state._wdt = `  ${summary}\n${theme.fg("muted", "  rendering diff…")}`;
 					const dc = resolveDiffColors(theme);
 					const diff = parseDiff(d.oldContent as string, d.newContent as string);
 					renderSplit(diff, d.language as string | undefined, MAX_RENDER_LINES, dc)
 						.then((rendered) => {
 							if (renderCtx.state._wdk !== key) return;
-							renderCtx.state._wdt = `  ${d.summary}\n${rendered}`;
+							const summary = renderDiffSummary(String(d.summary), theme);
+							renderCtx.state._wdt = `  ${summary}\n${rendered}`;
 							renderCtx.invalidate();
 						})
 						.catch(() => {
@@ -230,7 +236,7 @@ export function registerWriteTool(
 					renderCtx.state._nfk = pk;
 					renderCtx.state._nft = base;
 					if (rawContent) {
-						hlBlock(rawContent, lang(fp))
+						hlBlock(rawContent, lang(fp), theme)
 							.then((hlLines) => {
 								if (renderCtx.state._nfk !== pk) return;
 								const maxShow = renderCtx.expanded ? hlLines.length : 12;

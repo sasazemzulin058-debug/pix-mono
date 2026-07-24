@@ -24,7 +24,7 @@
 import type { AgentToolUpdateCallback, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { type CollapseState, tickCollapse } from "@xynogen/pix-data/collapse";
-import { FG_DIM, RST } from "@xynogen/pix-pretty/ansi";
+import { FG_DIM, RST, resolveBaseBackground } from "@xynogen/pix-pretty/ansi";
 import { MAX_PREVIEW_LINES } from "@xynogen/pix-pretty/config";
 import { showOverlay } from "@xynogen/pix-pretty/gate-overlay";
 import { renderBashOutput } from "@xynogen/pix-pretty/renderers";
@@ -406,6 +406,7 @@ export default function (pi: ExtensionAPI): void {
 			theme: ThemeLike,
 			renderCtx: RenderContextLike,
 		) => {
+			resolveBaseBackground(theme);
 			const text = renderCtx.lastComponent ?? new Text("", 0, 0);
 			if (
 				hideCollapsedToolCall(renderCtx.state as CollapseState, renderCtx.expanded, (value) =>
@@ -429,6 +430,7 @@ export default function (pi: ExtensionAPI): void {
 			theme: ThemeLike,
 			renderCtx: RenderContextLike,
 		) => {
+			resolveBaseBackground(theme);
 			const text = renderCtx.lastComponent ?? new Text("", 0, 0);
 			const details = result.details as SudoResultDetails | undefined;
 
@@ -489,7 +491,7 @@ export default function (pi: ExtensionAPI): void {
 
 			const code = typeof details.exitCode === "number" ? details.exitCode : null;
 			const rendered = typeof details._render === "string" ? details._render : "";
-			const { summary } = renderBashOutput(rendered, code);
+			const { summary } = renderBashOutput(rendered, code, theme);
 			const lines = rendered ? rendered.split("\n") : [];
 			const lineCount = lines.length;
 			const lineInfo = lineCount > 1 ? `  ${FG_DIM}(${lineCount} lines)${RST}` : "";

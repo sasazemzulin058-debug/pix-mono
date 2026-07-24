@@ -4,6 +4,7 @@ import type {
 	ToolRenderResultOptions,
 } from "@earendil-works/pi-coding-agent";
 import { type CollapseState, tickCollapse } from "@xynogen/pix-data/collapse";
+import { resolveBaseBackground } from "@xynogen/pix-pretty/ansi";
 import type { ToolContext } from "@xynogen/pix-pretty/context";
 import { fffFormatGrepText } from "@xynogen/pix-pretty/fff";
 import type {
@@ -133,6 +134,7 @@ export function registerGrepTool(
 		},
 
 		renderCall(args: GrepParams, theme: ThemeLike, renderCtx: RenderContextLike) {
+			resolveBaseBackground(theme);
 			const pattern = args.pattern ?? "";
 			const path = args.path ? ` ${theme.fg("muted", `in ${sp(args.path)}`)}` : "";
 			const glob = args.glob ? ` ${theme.fg("muted", `(${args.glob})`)}` : "";
@@ -157,6 +159,7 @@ export function registerGrepTool(
 			theme: ThemeLike,
 			renderCtx: RenderContextLike,
 		) {
+			resolveBaseBackground(theme);
 			const text = renderCtx.lastComponent ?? new TextComponent("", 0, 0);
 			const d = result.details;
 			const isPartial = _opt?.isPartial === true;

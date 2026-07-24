@@ -34,9 +34,19 @@ function getThemeBgAnsi(theme: BgTheme, key: string): string | null {
 /** Read themed tool backgrounds and update BG_BASE / BG_ERROR + RST.
  *  Recompute on each render so runtime theme changes are respected. */
 export function resolveBaseBackground(theme: BgTheme | null | undefined): void {
-	if (!theme?.getBgAnsi) return;
+	if (!theme?.getBgAnsi) {
+		BG_BASE = BG_DEFAULT;
+		BG_ERROR = BG_DEFAULT;
+		RST = "\x1b[0m";
+		return;
+	}
 
-	BG_BASE = getThemeBgAnsi(theme, "toolBg") ?? getThemeBgAnsi(theme, "background") ?? BG_DEFAULT;
+	BG_BASE =
+		getThemeBgAnsi(theme, "toolSuccessBg") ??
+		getThemeBgAnsi(theme, "toolPendingBg") ??
+		getThemeBgAnsi(theme, "toolBg") ??
+		getThemeBgAnsi(theme, "background") ??
+		BG_DEFAULT;
 	BG_ERROR = getThemeBgAnsi(theme, "toolErrorBg") ?? BG_BASE;
 	RST = `\x1b[0m${BG_BASE}`;
 }

@@ -28,8 +28,8 @@ export type BgTheme = { getBgAnsi?: (key: string) => string };
 
 export type FgTheme = {
 	fg: (key: string, text: string) => string;
-	// Optional raw-ANSI accessor pi's theme exposes; used by the diff renderer
-	// to pull toolDiffAdded/Removed/Context colors. Absent on minimal themes.
+	// Optional raw-ANSI accessors exposed by Pi's theme. Diff foregrounds and
+	// generated tint backgrounds derive from these semantic theme colors.
 	getFgAnsi?: (key: string) => string;
 };
 
