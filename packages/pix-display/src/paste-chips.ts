@@ -200,6 +200,18 @@ function compactNumber(raw: string): string {
 // per-instance, capturing the base implementation, so large text pastes get the
 // same trailing-space treatment as image chips.
 type PasteHandler = { handlePaste(text: string): void };
+type SubmitHandler = { submitValue(): void };
+
+/**
+ * Drop image classifications when Pi resets its paste IDs after a submit.
+ *
+ * The base editor clears `pastes` and resets `pasteCounter` to zero, so IDs are
+ * reused in the next prompt. Keeping the old IDs would make a later text paste
+ * with the same ID render as an image chip.
+ */
+export function clearImageIdsAfterSubmit(imageIds: Set<number>): void {
+	imageIds.clear();
+}
 
 class ChipEditor extends CustomEditor {
 	private readonly imageIds = new Set<number>();
@@ -208,6 +220,7 @@ class ChipEditor extends CustomEditor {
 		super(...args);
 		this.patchHandlePaste();
 		this.patchExpandPasteMarkers();
+		this.patchSubmitValue();
 	}
 
 	override insertTextAtCursor(text: string): void {
@@ -243,6 +256,17 @@ class ChipEditor extends CustomEditor {
 			if (endsWithMarker(after) && after !== before) {
 				super.insertTextAtCursor(" ");
 			}
+		};
+	}
+
+	private patchSubmitValue(): void {
+		const self = this as unknown as SubmitHandler;
+		const base = self.submitValue.bind(self);
+		self.submitValue = () => {
+			// Pi resets pasteCounter to zero in submitValue. Clear the parallel
+			// image-ID registry in the same operation before those IDs get reused.
+			clearImageIdsAfterSubmit(this.imageIds);
+			base();
 		};
 	}
 

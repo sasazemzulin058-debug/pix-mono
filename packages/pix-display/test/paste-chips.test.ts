@@ -9,6 +9,7 @@
 import { describe, expect, it } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import {
+	clearImageIdsAfterSubmit,
 	endsWithMarker,
 	expandPasteMarkers,
 	replaceImagePaths,
@@ -276,6 +277,25 @@ describe("paste-chips image paste round-trip", () => {
 		const stripped = stripAnsi(restyleMarkers(buffer, imageIds));
 
 		expect(stripped).toBe("󰋩 image #1");
+	});
+
+	it("does not classify a reused text-paste ID as an image after submit", () => {
+		const internals = makeInternals();
+		const imageIds = new Set<number>();
+		const imageMarker = replaceImagePaths("/tmp/shot.png", internals, imageIds);
+
+		expect(stripAnsi(restyleMarkers(imageMarker, imageIds))).toBe("󰋩 image #1");
+
+		// Mirrors Pi's submitValue reset: it clears pastes and starts IDs at 1
+		// again for the next prompt. The image registry must reset with it.
+		internals.pastes.clear();
+		internals.pasteCounter = 0;
+		clearImageIdsAfterSubmit(imageIds);
+		internals.pastes.set(1, "x".repeat(1001));
+		internals.pasteCounter = 1;
+
+		const textMarker = "[paste #1 1001 chars]";
+		expect(stripAnsi(restyleMarkers(textMarker, imageIds))).toBe("󰉿 text 1k chars");
 	});
 });
 
