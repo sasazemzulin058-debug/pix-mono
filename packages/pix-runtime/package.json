@@ -1,0 +1,52 @@
+{
+	"name": "@xynogen/pix-runtime",
+	"version": "0.1.0",
+	"description": "Pix shared runtime — versioned pix.json config, atomic persistence, typed change events",
+	"type": "module",
+	"main": "src/index.ts",
+	"scripts": {
+		"test": "bun test"
+	},
+	"files": [
+		"src",
+		"README.md",
+		"DESIGN.md",
+		"LICENSE"
+	],
+	"pi": {
+		"extensions": [
+			"src/extension.ts"
+		]
+	},
+	"exports": {
+		".": "./src/index.ts",
+		"./config": "./src/runtime.ts",
+		"./sections": "./src/sections/index.ts",
+		"./collapse": "./src/collapse.ts",
+		"./testing": "./src/testing.ts"
+	},
+	"keywords": [
+		"pi",
+		"pi-package",
+		"pi-extension",
+		"config",
+		"runtime"
+	],
+	"author": "xynogen",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/xynogen/pix-mono.git",
+		"directory": "packages/pix-runtime"
+	},
+	"homepage": "https://github.com/xynogen/pix-mono/tree/main/packages/pix-runtime#readme",
+	"bugs": {
+		"url": "https://github.com/xynogen/pix-mono/issues"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*"
+	}
+}

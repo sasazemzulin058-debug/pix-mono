@@ -1,0 +1,188 @@
+/**
+ * pix-command.ts — the `/pix` command: unified settings overlay for pix.json.
+ *
+ * Runtime owns this because it edits the shared document. Rows are declared
+ * here against typed sections; persistence goes through `runtime.update()`.
+ * Headless hosts get a notify summary instead of the overlay.
+ */
+
+import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { PixRuntime } from "./runtime.ts";
+import type { DeepPartial, SectionHandle } from "./schema.ts";
+import { collapseSection } from "./sections/collapse.ts";
+import { gateSection } from "./sections/gate.ts";
+import { optimizerSection } from "./sections/optimizer.ts";
+import { prettySection } from "./sections/pretty.ts";
+
+interface SettingRow<T> {
+	section: string;
+	label: string;
+	handle: SectionHandle<string, T>;
+	values: readonly string[];
+	read: (v: T) => string;
+	patch: (value: string) => DeepPartial<T>;
+}
+
+/** Capture a row's section type, then erase it so rows can share one list. */
+function row<T>(r: SettingRow<T>): SettingRow<unknown> {
+	return r as SettingRow<unknown>;
+}
+
+const SETTINGS: SettingRow<unknown>[] = [
+	row({
+		section: "Pretty",
+		label: "icons",
+		handle: prettySection,
+		values: ["nerd", "unicode", "ascii"],
+		read: (v) => v.icons,
+		patch: (value) => ({ icons: value as "nerd" | "unicode" | "ascii" }),
+	}),
+	row({
+		section: "Pretty",
+		label: "ls style",
+		handle: prettySection,
+		values: ["grid", "tree"],
+		read: (v) => v.lsStyle,
+		patch: (value) => ({ lsStyle: value as "grid" | "tree" }),
+	}),
+	row({
+		section: "Collapse",
+		label: "enabled",
+		handle: collapseSection,
+		values: ["true", "false"],
+		read: (v) => String(v.enabled),
+		patch: (value) => ({ enabled: value === "true" }),
+	}),
+	row({
+		section: "Collapse",
+		label: "delay (sec)",
+		handle: collapseSection,
+		values: ["5", "10", "15", "20", "30", "60"],
+		read: (v) => String(v.delaySec),
+		patch: (value) => ({ delaySec: Number(value) }),
+	}),
+	row({
+		section: "Optimizer",
+		label: "caveman",
+		handle: optimizerSection,
+		values: ["off", "lite", "full", "ultra", "micro"],
+		read: (v) => v.caveman,
+		patch: (value) => ({ caveman: value as "off" | "lite" | "full" | "ultra" | "micro" }),
+	}),
+	row({
+		section: "Optimizer",
+		label: "rtk",
+		handle: optimizerSection,
+		values: ["on", "off"],
+		read: (v) => v.rtk,
+		patch: (value) => ({ rtk: value as "on" | "off" }),
+	}),
+	row({
+		section: "Gate",
+		label: "disable defaults",
+		handle: gateSection,
+		values: ["false", "true"],
+		read: (v) => String(v.disableDefaults),
+		patch: (value) => ({ disableDefaults: value === "true" }),
+	}),
+];
+
+function buildSummary(runtime: PixRuntime): string {
+	const lines = [`pix settings (${runtime.path})`, ""];
+	let lastSection = "";
+	for (const row of SETTINGS) {
+		if (row.section !== lastSection) {
+			if (lastSection) lines.push("");
+			lines.push(`[${row.section}]`);
+			lastSection = row.section;
+		}
+		const value = row.read(runtime.get(row.handle));
+		const isDefault = value === row.values[0];
+		lines.push(`  ${row.label}: ${value}${isDefault ? "" : " *"}`);
+	}
+	return lines.join("\n");
+}
+
+export function registerPixCommand(pi: ExtensionAPI, runtime: PixRuntime): void {
+	pi.registerCommand("pix", {
+		description: "pix: open shared settings (edit pix.json)",
+		handler: async (_args: string, ctx: ExtensionCommandContext) => {
+			const ui = ctx.ui as unknown as {
+				custom?: (f: unknown, opts?: unknown) => Promise<unknown>;
+				notify(m: string, t?: "info" | "warning" | "error"): void;
+			};
+
+			if (typeof ui.custom !== "function") {
+				ui.notify(buildSummary(runtime), "info");
+				return;
+			}
+
+			const boxW = 52;
+			await ui.custom(
+				(
+					tui: { requestRender(): void },
+					theme: {
+						fg(c: string, t: string): string;
+						bold(t: string): string;
+					},
+					_kb: unknown,
+					done: (v: null) => void,
+				) => {
+					let selected = 0;
+
+					const cycle = (direction: -1 | 1) => {
+						const row = SETTINGS[selected];
+						if (!row) return;
+						const cur = row.values.indexOf(row.read(runtime.get(row.handle)));
+						const next = (cur + direction + row.values.length) % row.values.length;
+						const val = row.values[next];
+						if (val === undefined) return;
+						void runtime.update(row.handle, row.patch(val), { origin: "command", source: "pix" });
+					};
+					const move = (direction: -1 | 1) => {
+						selected = (selected + direction + SETTINGS.length) % SETTINGS.length;
+					};
+
+					return {
+						render: () => {
+							const labelW = Math.max(...SETTINGS.map((r) => r.label.length));
+							const lines: string[] = [theme.fg("accent", theme.bold("  pix settings")), ""];
+							let lastSection = "";
+							for (let i = 0; i < SETTINGS.length; i++) {
+								const row = SETTINGS[i]!;
+								if (row.section !== lastSection) {
+									if (lastSection) lines.push("");
+									lines.push(theme.fg("dim", `  ${row.section}`));
+									lastSection = row.section;
+								}
+								const sel = i === selected;
+								const cursor = sel ? theme.fg("accent", "→") : " ";
+								const label = theme.fg(sel ? "accent" : "text", row.label.padEnd(labelW));
+								const value = row.read(runtime.get(row.handle));
+								const isDefault = value === row.values[0];
+								lines.push(`${cursor} ${label}  ${theme.fg(isDefault ? "dim" : "success", value)}`);
+							}
+							lines.push("");
+							lines.push(theme.fg("dim", "←→ change · ↑↓ move · esc close"));
+							return lines;
+						},
+						invalidate: () => {},
+						handleInput: (data: string) => {
+							if (data === "k" || data === "\u001b[A") move(-1);
+							else if (data === "j" || data === "\u001b[B") move(1);
+							else if (data === "h" || data === "\u001b[D") cycle(-1);
+							else if (data === "l" || data === "\u001b[C" || data === " " || data === "\r")
+								cycle(1);
+							else if (data === "\u001b" || data === "q") {
+								done(null);
+								return;
+							} else return;
+							tui.requestRender();
+						},
+					};
+				},
+				{ overlay: true, overlayOptions: { anchor: "center", width: boxW, maxHeight: "80%" } },
+			);
+		},
+	});
+}
