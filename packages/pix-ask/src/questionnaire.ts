@@ -13,7 +13,7 @@ import {
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 import { dim } from "./components.js";
-import { frameLines, modalWidth } from "./frame.js";
+import { frameLines, modalWidth } from "@xynogen/pix-pretty/modal-frame";
 import { checkboxGlyphs, selectionGlyph } from "./glyphs.js";
 import { safeMarkdownTheme, sentinelsFor } from "./helpers.js";
 import type { OptionData, Params, QuestionData } from "./schema.js";

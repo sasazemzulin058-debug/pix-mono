@@ -5,12 +5,12 @@
  * called by index.ts alongside rtk(pi).
  */
 
-import type {
-	ExtensionAPI,
-	ExtensionCommandContext,
-	ExtensionContext,
-} from "@earendil-works/pi-coding-agent";
-import { loadOptValue, saveOptValue } from "./persist.ts";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import {
+	createMode,
+	resolveLevel as resolveLevelGeneric,
+	toggleLevel as toggleLevelGeneric,
+} from "./mode.ts";
 import type { OptimizerHandle, OptimizerStatus } from "./status.ts";
 
 // ── Levels ────────────────────────────────────────────────────────────────────
@@ -97,11 +97,7 @@ export function buildPrompt(level: Level): string {
  * Handles stop aliases (stop/quit → "off") and valid level names.
  */
 export function resolveLevel(arg: string): Level | null {
-	const a = arg.trim().toLowerCase();
-	if (STOP_ALIASES.has(a)) return "off";
-	if (LEVEL_NUMBERS[a]) return LEVEL_NUMBERS[a];
-	if (LEVELS.includes(a as Level)) return a as Level;
-	return null;
+	return resolveLevelGeneric(arg, LEVELS, LEVEL_NUMBERS, STOP_ALIASES);
 }
 
 /**
@@ -127,74 +123,18 @@ export function buildHelp(current: Level): string {
  * Toggle: off → full, anything else → off.
  */
 export function toggleLevel(current: Level): Level {
-	return current === "off" ? "full" : "off";
+	return toggleLevelGeneric(current);
 }
 
 // ── Pi extension ────────────────────────────────────────────────────────────
 
 export function caveman(pi: ExtensionAPI, status: OptimizerStatus): OptimizerHandle {
-	let level: Level = "off";
-
-	// -- Status: report into the shared optimizer indicator. --
-
-	function syncStatus(ctx: Pick<ExtensionContext, "ui">) {
-		status.set("caveman", level !== "off", ctx);
-	}
-
-	// Inject caveman prompt via before_agent_start
-	pi.on("before_agent_start", async (event, _ctx) => {
-		const prompt = buildPrompt(level);
-		if (!prompt) return undefined;
-		const existing = event.systemPrompt ?? "";
-		return { systemPrompt: `${prompt}\n\n${existing}` };
-	});
-
-	// -- Restore live level from the session log on load --
-
-	pi.on("session_start", async (_event, ctx) => {
-		// Session log first (survives in-session branch nav), then disk (survives
-		// a full quit/restart). Disk wins when present so a new session restores
-		// the last chosen level instead of defaulting to off.
-		for (const entry of ctx.sessionManager.getEntries()) {
-			if (entry.type === "custom" && entry.customType === "caveman-level") {
-				level = (entry.data as { level: Level })?.level ?? level;
-			}
-		}
-		const saved = loadOptValue("caveman");
-		if (saved && LEVELS.includes(saved as Level)) level = saved as Level;
-		syncStatus(ctx);
-	});
-
-	pi.on("agent_start", async (_event, ctx) => {
-		syncStatus(ctx);
-	});
-	pi.on("agent_end", async (_event, ctx) => {
-		syncStatus(ctx);
-	});
-	pi.on("session_shutdown", async () => {});
-
-	// -- Overlay value handler (called by the /optimizer overlay) --
-
-	async function run(value: string, ctx: ExtensionCommandContext): Promise<void> {
-		const resolved = resolveLevel(value);
-		if (resolved === null) return;
-		level = resolved;
-
-		pi.appendEntry("caveman-level", { level });
-		saveOptValue("caveman", level);
-		syncStatus(ctx);
-
-		ctx.ui.notify(
-			level === "off" ? "Caveman mode off." : `Caveman: ${STATUS_LABELS[level]}`,
-			"info",
-		);
-	}
-
-	return {
+	return createMode(pi, status, {
 		name: "caveman",
 		help: "caveman — terse output",
-		values: LEVELS,
-		current: () => level,
-		run,
-	};
+		levels: LEVELS,
+		buildPrompt,
+		resolve: resolveLevel,
+		notify: (level) => (level === "off" ? "Caveman mode off." : `Caveman: ${STATUS_LABELS[level]}`),
+	});
 }

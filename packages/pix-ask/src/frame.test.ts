@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { frameLines, modalWidth } from "./frame.js";
+import { frameLines, modalWidth } from "@xynogen/pix-pretty/modal-frame";
 
 const noColor = (s: string) => s;
 

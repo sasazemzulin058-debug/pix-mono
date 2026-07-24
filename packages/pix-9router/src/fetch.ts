@@ -6,14 +6,11 @@
  *   ROUTER_API_KEY   — bearer token for the router
  */
 
-import { type ExecFileException, execFile } from "node:child_process";
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { routerBaseUrl } from "./data.js";
+import { apiPost, curl, isCancelled } from "./http.js";
 import { makeRenderCall, makeRenderResult } from "./render.js";
-
-const REQUEST_TIMEOUT_MS = 30_000;
 
 type RouterOutcome = "running" | "fallback" | "success" | "cancelled" | "error";
 type FetchFormat = "markdown" | "text" | "html";
@@ -45,62 +42,6 @@ interface FetchDependencies {
 	curl: typeof curl;
 }
 
-function auth(): string | undefined {
-	return process.env.ROUTER_API_KEY;
-}
-
-async function apiPost(
-	path: string,
-	body: Record<string, unknown>,
-	signal?: AbortSignal,
-): Promise<string> {
-	const url = `${routerBaseUrl()}${path}`;
-	const key = auth();
-	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-	const s = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
-
-	try {
-		const res = await fetch(url, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				...(key ? { Authorization: `Bearer ${key}` } : {}),
-			},
-			body: JSON.stringify(body),
-			signal: s,
-		});
-		if (!res.ok) {
-			const errText = await res.text().catch(() => "");
-			throw new Error(`API ${res.status}: ${errText.slice(0, 500)}`);
-		}
-		return await res.text();
-	} finally {
-		clearTimeout(timeout);
-	}
-}
-
-function curl(args: string[]): Promise<string> {
-	return new Promise((resolve, reject) => {
-		execFile(
-			"curl",
-			["-sS", "--connect-timeout", "10", "--max-time", "25", ...args],
-			{ maxBuffer: 10 * 1024 * 1024, timeout: 30_000 },
-			(err, stdout, stderr) => {
-				if (err) {
-					const e = err as ExecFileException;
-					const msg = e.killed
-						? "curl timed out"
-						: `curl exit ${e.code ?? "??"}: ${stderr.slice(0, 300)}`;
-					reject(new Error(msg));
-					return;
-				}
-				resolve(stdout);
-			},
-		);
-	});
-}
-
 /**
  * Extract readable page content from the exa fetch JSON envelope.
  * Shape: { provider, url, title, content: { format, text }, ... }
@@ -129,10 +70,6 @@ export function formatFetchResult(raw: string): string {
 	if (obj.url) header.push(`URL: ${obj.url}`);
 
 	return header.length > 0 ? `${header.join("\n")}\n\n${text}` : text;
-}
-
-function isCancelled(error: unknown, signal: AbortSignal | undefined): boolean {
-	return signal?.aborted === true || (error instanceof DOMException && error.name === "AbortError");
 }
 
 export async function executeFetch(

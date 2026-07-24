@@ -11,7 +11,6 @@
  *   ROUTER_API_KEY   — bearer token for the router
  */
 
-import { type ExecFileException, execFile } from "node:child_process";
 import { constants as fsConstants } from "node:fs";
 import { access, lstat, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -19,6 +18,7 @@ import { basename, dirname, extname, isAbsolute, resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { routerBaseUrl } from "./data.js";
+import { auth, curl } from "./http.js";
 import { makeRenderCall, makeRenderResult } from "./render.js";
 
 const REQUEST_TIMEOUT_MS = 120_000; // audio transcription can take longer
@@ -44,10 +44,6 @@ interface TranscribeResult {
 	content: { type: "text"; text: string }[];
 	details: TranscribeResultDetails;
 	isError?: boolean;
-}
-
-function auth(): string | undefined {
-	return process.env.ROUTER_API_KEY;
 }
 
 /** Map file extension to MIME type for common audio formats. */
@@ -104,27 +100,6 @@ async function apiMultipart(
 	} finally {
 		clearTimeout(timeout);
 	}
-}
-
-function curl(args: string[]): Promise<string> {
-	return new Promise((resolve, reject) => {
-		execFile(
-			"curl",
-			["-sS", "--connect-timeout", "10", "--max-time", "120", ...args],
-			{ maxBuffer: 10 * 1024 * 1024, timeout: REQUEST_TIMEOUT_MS },
-			(err, stdout, stderr) => {
-				if (err) {
-					const e = err as ExecFileException;
-					const msg = e.killed
-						? "curl timed out"
-						: `curl exit ${e.code ?? "??"}: ${stderr.slice(0, 300)}`;
-					reject(new Error(msg));
-					return;
-				}
-				resolve(stdout);
-			},
-		);
-	});
 }
 
 /** Extract the `text` field from a JSON envelope, or return the raw string. */
@@ -473,7 +448,7 @@ export default function registerTranscribe(pi: ExtensionAPI): void {
 					`${routerBaseUrl()}/audio/transcriptions`,
 				];
 
-				const raw = await curl(curlArgs);
+				const raw = await curl(curlArgs, { maxTime: 120, timeoutMs: REQUEST_TIMEOUT_MS });
 				return await run("curl-fallback", raw);
 			} catch (curlErr: unknown) {
 				const curlMsg = curlErr instanceof Error ? curlErr.message : String(curlErr);
