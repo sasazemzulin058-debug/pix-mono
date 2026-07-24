@@ -22,8 +22,8 @@ import type {
 	ToolFactory,
 } from "@xynogen/pix-pretty/types";
 import { getErrorMessage, shortPath } from "@xynogen/pix-pretty/utils";
+import { once } from "@xynogen/pix-runtime/once";
 import { registerGrepTool } from "./grep.js";
-import { once } from "./once.ts";
 
 export default function pixGrepExtension(pi: PiPrettyApi): void {
 	once(pi, "pix-grep", () => {

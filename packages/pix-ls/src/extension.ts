@@ -6,8 +6,8 @@ import {
 import { CursorStore, fffState } from "@xynogen/pix-pretty/fff";
 import type { PiPrettyApi, TextComponentCtor, ToolFactory } from "@xynogen/pix-pretty/types";
 import { shortPath } from "@xynogen/pix-pretty/utils";
+import { once } from "@xynogen/pix-runtime/once";
 import { registerLsTool } from "./ls.js";
-import { once } from "./once.ts";
 
 export default function pixLsExtension(pi: PiPrettyApi): void {
 	once(pi, "pix-ls", () => {

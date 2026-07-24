@@ -8,7 +8,7 @@
 
 import { pixConfig } from "@xynogen/pix-data/pix-config";
 import * as Diff from "diff";
-import { BG_BASE, BOLD, FG_DIM, FG_LNUM, FG_RULE, RST } from "./ansi.js";
+import { BG_BASE, BOLD, FG_DIM, FG_GREEN, FG_LNUM, FG_RED, FG_RULE, RST } from "./ansi.js";
 import { MAX_HL_CHARS, MAX_RENDER_LINES, WORD_DIFF_MIN_SIM } from "./config.js";
 import type { DiffLine, ParsedDiff } from "./diff.js";
 import { hlBlock } from "./highlight.js";
@@ -32,8 +32,9 @@ function envInt(name: string, fallback: number): number {
 const DIM = "\x1b[2m";
 const dc = pixConfig().pretty.diff;
 
-const FG_ADD = "\x1b[38;2;100;180;120m";
-const FG_DEL = "\x1b[38;2;200;100;100m";
+// Diff add/remove share the canonical green/red from ansi.ts (single source).
+const FG_ADD = FG_GREEN;
+const FG_DEL = FG_RED;
 const FG_STRIPE = "\x1b[38;2;40;40;40m"; // diagonal stripes on filler cells
 
 const BORDER_BAR = "▌";

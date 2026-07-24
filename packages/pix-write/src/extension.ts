@@ -8,7 +8,7 @@ import { attachResizeListener, trackInvalidator } from "@xynogen/pix-pretty/resi
 import type { PiPrettyApi, TextComponentCtor, ToolFactory } from "@xynogen/pix-pretty/types";
 import { shortPath } from "@xynogen/pix-pretty/utils";
 
-import { once } from "./once.ts";
+import { once } from "@xynogen/pix-runtime/once";
 import { registerWriteTool } from "./write.js";
 
 export default function pixWriteExtension(pi: PiPrettyApi): void {

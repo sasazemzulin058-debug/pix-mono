@@ -1,8 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-
+import { once } from "@xynogen/pix-runtime/once";
 import { buildResponseText } from "./helpers.js";
-import { once } from "./once.ts";
 import { AskQuestionnaire } from "./questionnaire.js";
 import { rpcFallback } from "./rpc.js";
 import type { Params } from "./schema.js";

@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { once } from "@xynogen/pix-runtime/once";
 import registerCapabilityNudge from "./capability.ts";
-import { once } from "./once.ts";
 import registerToolsNudge from "./tools.ts";
 
 export default function (pi: ExtensionAPI): void {

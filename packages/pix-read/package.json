@@ -1,6 +1,6 @@
 {
 	"name": "@xynogen/pix-read",
-	"version": "0.1.16",
+	"version": "0.1.17",
 	"description": "Pi tool — file read with syntax highlight",
 	"type": "module",
 	"main": "src/index.ts",
@@ -34,8 +34,9 @@
 		"access": "public"
 	},
 	"dependencies": {
+		"@xynogen/pix-data": "^0.3.4",
 		"@xynogen/pix-pretty": "^1.7.22",
-		"@xynogen/pix-data": "^0.3.4"
+		"@xynogen/pix-runtime": "^0.1.1"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-coding-agent": "*",
