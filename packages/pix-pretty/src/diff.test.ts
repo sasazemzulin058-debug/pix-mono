@@ -1,9 +1,15 @@
 import { describe, expect, it } from "bun:test";
 import { parseDiff } from "./diff.js";
-import { diffThemeCacheKey, renderDiffSummary, resolveDiffColors } from "./diff-render.js";
+import {
+	diffThemeCacheKey,
+	renderDiffSummary,
+	renderUnified,
+	resolveDiffColors,
+} from "./diff-render.js";
 
 const OLD = "line1\nline2\nline3";
 const NEW = "line1\nCHANGED\nline3";
+const ANSI_RE = /\x1b\[[0-9;]*m|<\/?syntax\w+>/g;
 
 describe("theme-derived diff rendering", () => {
 	const theme = {
@@ -16,13 +22,21 @@ describe("theme-derived diff rendering", () => {
 		},
 	};
 
-	it("derives foregrounds and tint backgrounds from semantic theme tokens", () => {
+	it("uses semantic foregrounds without tint backgrounds", () => {
 		const colors = resolveDiffColors(theme);
 		expect(colors.fgAdd).toBe("\x1b[38;2;120;210;150m");
 		expect(colors.fgDel).toBe("\x1b[38;2;230;120;130m");
 		expect(colors.fgCtx).toBe("\x1b[38;2;130;140;150m");
-		expect(colors.bgAdd).toBe("\x1b[48;2;24;42;30m");
-		expect(colors.bgDel).toBe("\x1b[48;2;46;24;26m");
+		for (const key of [
+			"bgAdd",
+			"bgDel",
+			"bgAddHighlight",
+			"bgDelHighlight",
+			"bgGutterAdd",
+			"bgGutterDel",
+		] as const) {
+			expect(colors[key]).toBe("\x1b[49m");
+		}
 	});
 
 	it("includes semantic theme colors in cache identity", () => {
@@ -37,6 +51,25 @@ describe("theme-derived diff rendering", () => {
 		expect(renderDiffSummary("no changes", theme)).toBe(
 			"<toolDiffContext>no changes</toolDiffContext>",
 		);
+	});
+
+	it("keeps the foreground-only diff style", async () => {
+		const rendered = await renderUnified(
+			parseDiff("const oldValue = 1;", "const newValue = 2;"),
+			"typescript",
+			80,
+			resolveDiffColors({ ...theme, fg: (_key, text) => text }),
+		);
+		const lines = rendered.replace(ANSI_RE, "").split("\n");
+
+		expect(lines).toHaveLength(4);
+		expect(lines[0]).toMatch(/^─+$/);
+		expect(lines[1]).toMatch(/^▌\s+1- │ const oldValue = 1;\s*$/);
+		expect(lines[2]).toMatch(/^▌\s+1\+ │ const newValue = 2;\s*$/);
+		expect(lines[3]).toMatch(/^─+$/);
+		expect(rendered).toContain(theme.getFgAnsi("toolDiffRemoved"));
+		expect(rendered).toContain(theme.getFgAnsi("toolDiffAdded"));
+		expect(rendered).not.toMatch(/\x1b\[48(?:;[^m]*)?m/);
 	});
 });
 

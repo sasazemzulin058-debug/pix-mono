@@ -9,10 +9,11 @@ const OPENING_FENCE_RE = /^```([^`]*)$/;
 const CLOSING_FENCE_RE = /^```\s*$/;
 const DEFAULT_LABEL = "code";
 const ANSI_RE = /\x1b\[[0-?]*[ -/]*[@-~]/g;
+const BACKGROUND_ANSI_RE = /\x1b\[(?:4[0-9]|48)(?:;[^m]*)?m/g;
 const OSC_RE = /\x1b\][^\x07]*(?:\x07|\x1b\\)/g;
 const PATCHED = Symbol.for("@xynogen/pix-display:code-block-renderer");
 
-type CodeFrameTheme = Pick<Theme, "bg" | "bold" | "fg" | "getBgAnsi">;
+type CodeFrameTheme = Pick<Theme, "bold" | "fg">;
 type RenderMode = "tui" | "rpc" | "json" | "print";
 
 type PatchablePrototype = {
@@ -52,6 +53,7 @@ function stripLayoutWhitespace(line: string, count: number): string {
 	let remaining = count;
 	return line
 		.replace(OSC_RE, "")
+		.replace(BACKGROUND_ANSI_RE, "")
 		.replace(/^(?:\x1b\[[0-?]*[ -/]*[@-~]| )+/, (prefix) =>
 			prefix.replace(/ /g, (space) => {
 				if (remaining <= 0) return space;
@@ -60,18 +62,6 @@ function stripLayoutWhitespace(line: string, count: number): string {
 			}),
 		)
 		.replace(/ +$/, "");
-}
-
-function paintFrame(theme: CodeFrameTheme, text: string): string {
-	try {
-		const bg = theme.getBgAnsi("toolSuccessBg");
-		const preserved = text.replace(/\x1b\[([0-9;]*)m/g, (sequence, params: string) =>
-			params === "0" || params.split(";").includes("49") ? `${sequence}${bg}` : sequence,
-		);
-		return `${bg}${preserved}\x1b[49m`;
-	} catch {
-		return theme.bg("toolSuccessBg", text);
-	}
 }
 
 function fenceLabel(line: string): string | undefined {
@@ -86,26 +76,18 @@ function topRule(width: number, language: string, theme: CodeFrameTheme): string
 	const displayLanguage = truncateToWidth(language, available, "…");
 	const label = theme.bold(theme.fg("accent", ` ${displayLanguage} `));
 	const ruleWidth = Math.max(0, width - visibleWidth(label) - 2);
-	return paintFrame(
-		theme,
-		`${theme.fg("borderMuted", "──")}${label}${theme.fg("borderMuted", "─".repeat(ruleWidth))}`,
-	);
+	return `${theme.fg("borderMuted", "──")}${label}${theme.fg("borderMuted", "─".repeat(ruleWidth))}`;
 }
 
 function bottomRule(width: number, theme: CodeFrameTheme): string {
-	return paintFrame(theme, theme.fg("borderMuted", "─".repeat(width)));
+	return theme.fg("borderMuted", "─".repeat(width));
 }
 
-function bodyLine(
-	line: string,
-	width: number,
-	layoutIndent: number,
-	theme: CodeFrameTheme,
-): string {
+function bodyLine(line: string, width: number, layoutIndent: number): string {
 	const content = truncateToWidth(stripLayoutWhitespace(line, layoutIndent), width, "…");
 	// Keep every code row free of frame glyphs and layout padding. Selection must
 	// copy only source text, including meaningful relative indentation in Python.
-	return paintFrame(theme, content);
+	return content;
 }
 
 /**
@@ -138,7 +120,7 @@ export function renderCodeFences(lines: string[], width: number, theme: CodeFram
 		framed.push(`${oscSequences(out[start] ?? "")}${topRule(frameWidth, language, theme)}`);
 		for (let index = start + 1; index < end; index++) {
 			framed.push(
-				`${oscSequences(out[index] ?? "")}${bodyLine(out[index] ?? "", width, bodyIndent, theme)}`,
+				`${oscSequences(out[index] ?? "")}${bodyLine(out[index] ?? "", width, bodyIndent)}`,
 			);
 		}
 		framed.push(`${oscSequences(out[end] ?? "")}${bottomRule(frameWidth, theme)}`);

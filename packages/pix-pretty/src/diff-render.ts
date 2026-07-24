@@ -3,10 +3,8 @@
 // vendored pretty extension's primitives (cli-highlight `hlBlock`, shared
 // theme-aware `RST`/`BG_BASE` from ansi.ts).
 //
-// Engine note: pi-diff used Shiki's codeToANSI (fg-only output). pretty's
-// hlBlock (cli-highlight) likewise emits only fg codes, so the bg-injection
-// technique below works unchanged — diff backgrounds layer underneath and
-// persist through fg switches.
+// Engine note: pi-diff used Shiki's codeToANSI. pretty uses cli-highlight,
+// shared with other pix-pretty renderers, and paints foreground tokens only.
 
 import { pixConfig } from "@xynogen/pix-data/pix-config";
 import * as Diff from "diff";
@@ -34,12 +32,6 @@ function envInt(name: string, fallback: number): number {
 const DIM = "\x1b[2m";
 const dc = pixConfig().pretty.diff;
 
-const FALLBACK_BG_ADD = "\x1b[48;2;22;38;32m";
-const FALLBACK_BG_DEL = "\x1b[48;2;45;25;25m";
-const FALLBACK_BG_ADD_W = "\x1b[48;2;35;75;50m";
-const FALLBACK_BG_DEL_W = "\x1b[48;2;80;35;35m";
-const FALLBACK_BG_GUTTER_ADD = "\x1b[48;2;18;32;26m";
-const FALLBACK_BG_GUTTER_DEL = "\x1b[48;2;38;22;22m";
 const FG_ADD = "\x1b[38;2;100;180;120m";
 const FG_DEL = "\x1b[38;2;200;100;100m";
 const FG_STRIPE = "\x1b[38;2;40;40;40m"; // diagonal stripes on filler cells
@@ -90,68 +82,17 @@ export const DEFAULT_DIFF_COLORS: DiffColors = {
 	fgAdd: FG_ADD,
 	fgDel: FG_DEL,
 	fgCtx: FG_DIM,
-	bgAdd: FALLBACK_BG_ADD,
-	bgDel: FALLBACK_BG_DEL,
-	bgAddHighlight: FALLBACK_BG_ADD_W,
-	bgDelHighlight: FALLBACK_BG_DEL_W,
-	bgGutterAdd: FALLBACK_BG_GUTTER_ADD,
-	bgGutterDel: FALLBACK_BG_GUTTER_DEL,
+	bgAdd: BG_BASE,
+	bgDel: BG_BASE,
+	bgAddHighlight: BG_BASE,
+	bgDelHighlight: BG_BASE,
+	bgGutterAdd: BG_BASE,
+	bgGutterDel: BG_BASE,
 };
 
-// --- contrast helpers -------------------------------------------------------
-// The gutter (line number + sign) paints the diff fg over a dark gutter bg.
-// A theme whose diff fg is itself dark renders the number/sign as black-on-
-// black. We keep the theme's hue but lift its luminance until it clears a
-// minimum contrast ratio against the gutter background it sits on.
-
-type Rgb = [number, number, number];
-
-function parseAnsiRgb(seq: string, kind: "38" | "48"): Rgb | null {
-	const m = seq.match(new RegExp(`\\x1b\\[${kind};2;(\\d+);(\\d+);(\\d+)m`));
-	if (!m) return null;
-	return [Number(m[1]), Number(m[2]), Number(m[3])];
-}
-
-function relLuminance([r, g, b]: Rgb): number {
-	const f = (c: number) => {
-		const s = c / 255;
-		return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-	};
-	return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
-}
-
-function contrastRatio(a: Rgb, b: Rgb): number {
-	const la = relLuminance(a);
-	const lb = relLuminance(b);
-	const [hi, lo] = la > lb ? [la, lb] : [lb, la];
-	return (hi + 0.05) / (lo + 0.05);
-}
-
-/** Keep hue, raise lightness toward white until contrast >= min (or capped). */
-function ensureContrast(fg: string, bgSeq: string, min = 3): string {
-	const rgb = parseAnsiRgb(fg, "38");
-	const bg = parseAnsiRgb(bgSeq, "48");
-	if (!rgb || !bg) return fg; // can't reason about it — leave theme value
-	if (contrastRatio(rgb, bg) >= min) return fg; // already legible
-	let [r, g, b] = rgb;
-	for (let i = 0; i < 12 && contrastRatio([r, g, b], bg) < min; i++) {
-		r = Math.round(r + (255 - r) * 0.25);
-		g = Math.round(g + (255 - g) * 0.25);
-		b = Math.round(b + (255 - b) * 0.25);
-	}
-	return `\x1b[38;2;${r};${g};${b}m`;
-}
-
-/** Resolve diff fg colors from pi's theme (if it exposes getFgAnsi), falling
- *  back to hardcoded ANSI. BG_BASE is already kept in sync by ansi.ts's
- *  resolveBaseBackground (called from the tool renderers).
- *
- *  Theme hue is preserved, but each add/del fg is contrast-checked against the
- *  gutter bg it is painted on and lifted if it would render too dark to read. */
 type DiffTheme = {
 	fg?: FgTheme["fg"];
 	getFgAnsi?: (key: string) => string;
-	getBgAnsi?: (key: string) => string;
 };
 
 function themeFg(theme: DiffTheme, key: string, fallback: string): string {
@@ -162,32 +103,19 @@ function themeFg(theme: DiffTheme, key: string, fallback: string): string {
 	}
 }
 
-function tintedBackground(fg: string, strength: number, fallback: string): string {
-	const rgb = parseAnsiRgb(fg, "38");
-	if (!rgb) return fallback;
-	const [r, g, b] = rgb.map((channel) => Math.round(channel * strength)) as Rgb;
-	return `\x1b[48;2;${r};${g};${b}m`;
-}
-
 export function resolveDiffColors(theme?: DiffTheme): DiffColors {
 	if (!theme) return DEFAULT_DIFF_COLORS;
-	const rawFgAdd = themeFg(theme, "toolDiffAdded", FG_ADD);
-	const rawFgDel = themeFg(theme, "toolDiffRemoved", FG_DEL);
-	const bgAdd = tintedBackground(rawFgAdd, 0.2, FALLBACK_BG_ADD);
-	const bgDel = tintedBackground(rawFgDel, 0.2, FALLBACK_BG_DEL);
-	const bgGutterAdd = tintedBackground(rawFgAdd, 0.15, FALLBACK_BG_GUTTER_ADD);
-	const bgGutterDel = tintedBackground(rawFgDel, 0.15, FALLBACK_BG_GUTTER_DEL);
 	return {
-		fgAdd: ensureContrast(rawFgAdd, bgGutterAdd),
-		fgDel: ensureContrast(rawFgDel, bgGutterDel),
+		fgAdd: themeFg(theme, "toolDiffAdded", FG_ADD),
+		fgDel: themeFg(theme, "toolDiffRemoved", FG_DEL),
 		fgCtx: themeFg(theme, "toolDiffContext", FG_DIM),
 		theme: typeof theme.fg === "function" ? (theme as FgTheme) : undefined,
-		bgAdd,
-		bgDel,
-		bgAddHighlight: tintedBackground(rawFgAdd, 0.35, FALLBACK_BG_ADD_W),
-		bgDelHighlight: tintedBackground(rawFgDel, 0.35, FALLBACK_BG_DEL_W),
-		bgGutterAdd,
-		bgGutterDel,
+		bgAdd: BG_BASE,
+		bgDel: BG_BASE,
+		bgAddHighlight: BG_BASE,
+		bgDelHighlight: BG_BASE,
+		bgGutterAdd: BG_BASE,
+		bgGutterDel: BG_BASE,
 	};
 }
 

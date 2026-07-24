@@ -6,9 +6,7 @@ const ANSI_RE = /\x1b\[[0-?]*[ -/]*[@-~]/g;
 
 const theme = {
 	fg: (color: string, text: string) => `\x1b[3${color === "accent" ? "2" : "8"}m${text}\x1b[39m`,
-	bg: (_color: string, text: string) => `\x1b[48;2;20;20;20m${text}\x1b[49m`,
 	bold: (text: string) => `\x1b[1m${text}\x1b[22m`,
-	getBgAnsi: (_color: string) => "\x1b[48;2;20;20;20m",
 } as Parameters<typeof renderCodeFences>[2];
 
 function plain(line: string): string {
@@ -16,6 +14,16 @@ function plain(line: string): string {
 }
 
 describe("renderCodeFences", () => {
+	it("keeps the foreground-only Markdown style", () => {
+		const rendered = renderCodeFences(["```ts", "  const answer = 42;", "```"], 24, theme);
+		expect(rendered.map(plain)).toEqual([
+			`── ts ${"─".repeat(18)}`,
+			"const answer = 42;",
+			"─".repeat(24),
+		]);
+		expect(rendered.join("\n")).not.toMatch(/\x1b\[(?:4[0-9]|48)(?:;[^m]*)?m/);
+	});
+
 	it("renders a bash fence with a labeled header", () => {
 		const lines = [
 			" ```bash                                                                  ",
@@ -129,12 +137,20 @@ describe("renderCodeFences", () => {
 		expect(rendered[2]).toBe('    print(f"Hello, {name}")');
 	});
 
-	it("preserves syntax-highlight ANSI while applying the frame background", () => {
+	it("preserves syntax colors while removing native Markdown backgrounds", () => {
 		const highlighted = '\x1b[38;2;206;145;120m"TOKEN"\x1b[39m';
-		const rendered = renderCodeFences(["```python", `  print(${highlighted})`, "```"], 40, theme);
+		const rendered = renderCodeFences(
+			[
+				"\x1b[48;2;20;20;20m```python\x1b[49m",
+				`\x1b[48;2;20;20;20m  print(${highlighted})\x1b[49m`,
+				"\x1b[48;2;20;20;20m```\x1b[49m",
+			],
+			40,
+			theme,
+		);
 
 		expect(rendered[1]).toContain(highlighted);
-		expect(rendered[1]).toContain("\x1b[48;2;20;20;20m");
+		expect(rendered.join("\n")).not.toMatch(/\x1b\[(?:4[0-9]|48)(?:;[^m]*)?m/);
 	});
 
 	it("truncates oversized code lines without exceeding terminal width", () => {

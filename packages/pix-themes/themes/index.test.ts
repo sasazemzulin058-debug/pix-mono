@@ -75,10 +75,10 @@ describe("pix-themes", () => {
 			expect(new Set(resolved).size).toBe(EXPRESSIVE_SYNTAX_KEYS.length);
 		});
 
-		it(`${name} provides themed tool surface backgrounds`, () => {
+		it(`${name} leaves tool surfaces on the terminal background`, () => {
 			const theme = readTheme(name);
 			for (const key of ["toolPendingBg", "toolSuccessBg", "toolErrorBg"]) {
-				expect(theme.colors[key]).toBeTruthy();
+				expect(theme.colors[key]).toBe("");
 			}
 		});
 	}

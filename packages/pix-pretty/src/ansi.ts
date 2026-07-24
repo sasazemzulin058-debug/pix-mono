@@ -1,5 +1,3 @@
-import type { BgTheme } from "./types.js";
-
 export let RST = "\x1b[0m";
 export const BOLD = "\x1b[1m";
 
@@ -13,47 +11,17 @@ export const FG_BLUE = "\x1b[38;2;100;140;220m";
 const FG_MUTED = "\x1b[38;2;139;148;158m";
 
 const BG_DEFAULT = "\x1b[49m";
-export let BG_BASE = BG_DEFAULT; // tool box success/base bg — updated from theme's toolSuccessBg
-export let BG_ERROR = BG_DEFAULT; // tool box error bg — updated from theme's toolErrorBg
+export let BG_BASE = BG_DEFAULT;
+export let BG_ERROR = BG_DEFAULT;
 
-/** Parse an ANSI 24-bit color escape into { r, g, b }. Handles both fg (38;2) and bg (48;2). */
-function parseAnsiRgb(ansi: string): { r: number; g: number; b: number } | null {
-	const m = ansi.match(new RegExp(`${ESC_RE}\\[(?:38|48);2;(\\d+);(\\d+);(\\d+)m`));
-	return m ? { r: +(m[1] ?? 0), g: +(m[2] ?? 0), b: +(m[3] ?? 0) } : null;
+/** Tool and diff renderers always preserve the terminal background. */
+export function resolveBaseBackground(_theme: unknown): void {
+	BG_BASE = BG_DEFAULT;
+	BG_ERROR = BG_DEFAULT;
+	RST = "\x1b[0m";
 }
 
-function getThemeBgAnsi(theme: BgTheme, key: string): string | null {
-	try {
-		const bgAnsi = theme.getBgAnsi?.(key);
-		return bgAnsi && parseAnsiRgb(bgAnsi) ? bgAnsi : null;
-	} catch {
-		return null;
-	}
-}
-
-/** Read themed tool backgrounds and update BG_BASE / BG_ERROR + RST.
- *  Recompute on each render so runtime theme changes are respected. */
-export function resolveBaseBackground(theme: BgTheme | null | undefined): void {
-	if (!theme?.getBgAnsi) {
-		BG_BASE = BG_DEFAULT;
-		BG_ERROR = BG_DEFAULT;
-		RST = "\x1b[0m";
-		return;
-	}
-
-	BG_BASE =
-		getThemeBgAnsi(theme, "toolSuccessBg") ??
-		getThemeBgAnsi(theme, "toolPendingBg") ??
-		getThemeBgAnsi(theme, "toolBg") ??
-		getThemeBgAnsi(theme, "background") ??
-		BG_DEFAULT;
-	BG_ERROR = getThemeBgAnsi(theme, "toolErrorBg") ?? BG_BASE;
-	RST = `\x1b[0m${BG_BASE}`;
-}
-
-const ESC_RE = "\u001b";
-
-export const ANSI_CAPTURE_RE = new RegExp(`${ESC_RE}\\[([0-9;]*)m`, "g");
+export const ANSI_CAPTURE_RE = /\x1b\[([0-9;]*)m/g;
 
 // ---------------------------------------------------------------------------
 // Low-contrast fix (same as pi-diff)

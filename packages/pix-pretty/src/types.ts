@@ -28,8 +28,7 @@ export type BgTheme = { getBgAnsi?: (key: string) => string };
 
 export type FgTheme = {
 	fg: (key: string, text: string) => string;
-	// Optional raw-ANSI accessors exposed by Pi's theme. Diff foregrounds and
-	// generated tint backgrounds derive from these semantic theme colors.
+	// Optional raw-ANSI accessor exposed by Pi's theme for semantic foregrounds.
 	getFgAnsi?: (key: string) => string;
 };
 
