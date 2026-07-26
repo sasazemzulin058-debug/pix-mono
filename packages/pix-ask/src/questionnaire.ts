@@ -12,8 +12,8 @@ import {
 	truncateToWidth,
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
-import { dim } from "./components.js";
 import { frameLines, modalWidth } from "@xynogen/pix-pretty/modal-frame";
+import { dim } from "./components.js";
 import { checkboxGlyphs, selectionGlyph } from "./glyphs.js";
 import { safeMarkdownTheme, sentinelsFor } from "./helpers.js";
 import type { OptionData, Params, QuestionData } from "./schema.js";
@@ -21,6 +21,22 @@ import { SENTINEL_FREEFORM, SENTINEL_NEXT, SEPARATOR, SPLIT_PANE_MIN_WIDTH } fro
 import type { AnswerKind, QuestionAnswer, QuestionnaireResult } from "./types.js";
 
 // ── AskQuestionnaire ───────────────────────────────────────────────────
+
+function printableCharacter(data: string): string | undefined {
+	const decoded = decodeKittyPrintable(data) ?? data;
+	const characters = [...decoded];
+	if (characters.length !== 1) return undefined;
+	const codePoint = characters[0]?.codePointAt(0);
+	if (
+		codePoint === undefined ||
+		codePoint < 32 ||
+		codePoint === 127 ||
+		(codePoint >= 128 && codePoint <= 159)
+	) {
+		return undefined;
+	}
+	return characters[0];
+}
 
 export class AskQuestionnaire extends Container {
 	private params: Params;
@@ -327,7 +343,10 @@ export class AskQuestionnaire extends Container {
 			return;
 		}
 
-		const numMatch = data.match(/^[1-9]$/);
+		// Decode CSI-u first: under Kitty flag 1 digits arrive as escape
+		// sequences, and the raw regex would miss them (digit would fall
+		// through into the search query instead of selecting an option).
+		const numMatch = (decodeKittyPrintable(data) ?? data).match(/^[1-9]$/);
 		if (numMatch && this.filteredOptions.length > 0) {
 			const idx = Number(numMatch[0]) - 1;
 			if (idx >= 0 && idx < this.filteredOptions.length) {
@@ -351,21 +370,11 @@ export class AskQuestionnaire extends Container {
 		}
 
 		if (!isMulti) {
-			const printable = decodeKittyPrintable(data);
+			// Accept Unicode text under both legacy and Kitty encodings, while
+			// rejecting C0, DEL, and C1 controls that corrupt filter queries.
+			const printable = printableCharacter(data);
 			if (printable !== undefined) {
 				this.searchQuery += printable;
-				this.selectedOptionIndex = 0;
-				this.refresh();
-				return;
-			}
-			const chars = [...data];
-			if (
-				chars.length === 1 &&
-				chars[0] &&
-				chars[0].charCodeAt(0) >= 32 &&
-				chars[0].charCodeAt(0) < 127
-			) {
-				this.searchQuery += chars[0];
 				this.selectedOptionIndex = 0;
 				this.refresh();
 			}

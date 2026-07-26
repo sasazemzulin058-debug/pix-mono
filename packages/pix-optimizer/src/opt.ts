@@ -167,12 +167,20 @@ export function registerOptCommand(
 						},
 						invalidate: () => {},
 						handleInput: (data: string) => {
-							if (data === "k" || matchesKey(data, "up")) move(-1);
-							else if (data === "j" || matchesKey(data, "down")) move(1);
-							else if (data === "h" || matchesKey(data, "left")) cycle(-1);
-							else if (data === "l" || matchesKey(data, "right") || data === " " || data === "\r")
+							// matchesKey handles both legacy bytes and Kitty CSI-u encodings
+							// for letters and special keys alike — raw string compares like
+							// `data === "k"` silently fail under the Kitty keyboard protocol.
+							if (matchesKey(data, "k") || matchesKey(data, "up")) move(-1);
+							else if (matchesKey(data, "j") || matchesKey(data, "down")) move(1);
+							else if (matchesKey(data, "h") || matchesKey(data, "left")) cycle(-1);
+							else if (
+								matchesKey(data, "l") ||
+								matchesKey(data, "right") ||
+								matchesKey(data, "space") ||
+								matchesKey(data, "enter")
+							)
 								cycle(1);
-							else if (matchesKey(data, "escape") || data === "q") {
+							else if (matchesKey(data, "escape") || matchesKey(data, "q")) {
 								done(null);
 								return;
 							} else return;

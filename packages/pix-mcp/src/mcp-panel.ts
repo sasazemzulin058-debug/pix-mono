@@ -1,4 +1,9 @@
-import { matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import {
+	decodeKittyPrintable,
+	matchesKey,
+	truncateToWidth,
+	visibleWidth,
+} from "@earendil-works/pi-tui";
 import { icon } from "@xynogen/pix-pretty/icon-catalog";
 import { frameLines, modalWidth } from "@xynogen/pix-pretty/modal-frame";
 import type { CachedTool, MetadataCache, ServerCacheEntry } from "./metadata-cache.ts";
@@ -6,6 +11,34 @@ import { createPanelKeys, type PanelKeybindings, type PanelKeys } from "./panel-
 import { resourceNameToToolName } from "./resource-tools.ts";
 import type { McpConfig, McpPanelCallbacks, McpPanelResult, ServerProvenance } from "./types.ts";
 import { isToolExcluded } from "./types.ts";
+
+/**
+ * Recover the printable character a key event represents, or undefined if the
+ * event is not a printable key.
+ *
+ * Under the Kitty keyboard protocol plain characters arrive as CSI-u sequences
+ * rather than single bytes, so a bare `data.length === 1` test drops them and
+ * typing into the search field does nothing. decodeKittyPrintable handles that
+ * encoding; the length check remains as the legacy-terminal path.
+ */
+function isPrintableCharacter(value: string): boolean {
+	const characters = [...value];
+	if (characters.length !== 1) return false;
+	const codePoint = characters[0]?.codePointAt(0);
+	return (
+		codePoint !== undefined &&
+		codePoint >= 32 &&
+		codePoint !== 127 &&
+		!(codePoint >= 128 && codePoint <= 159)
+	);
+}
+
+function printableChar(data: string): string | undefined {
+	const decoded = decodeKittyPrintable(data);
+	if (decoded !== undefined && isPrintableCharacter(decoded)) return decoded;
+	if (isPrintableCharacter(data)) return data;
+	return undefined;
+}
 
 export interface McpPopupTheme {
 	fg(color: string, text: string): string;
@@ -434,8 +467,9 @@ class McpPanel {
 				if (item) this.toggleItem(item);
 				return;
 			}
-			if (data.length === 1 && data.charCodeAt(0) >= 32) {
-				this.descQuery += data;
+			const descChar = printableChar(data);
+			if (descChar !== undefined) {
+				this.descQuery += descChar;
 				this.rebuildVisibleItems();
 				this.cursorIndex = Math.min(this.cursorIndex, Math.max(0, this.visibleItems.length - 1));
 				return;
@@ -535,7 +569,7 @@ class McpPanel {
 			return;
 		}
 
-		if (data === "?") {
+		if (printableChar(data) === "?") {
 			if (this.authOnly) return;
 			this.descSearchActive = true;
 			this.descQuery = "";
@@ -555,8 +589,9 @@ class McpPanel {
 		}
 
 		// All other printable chars → always-on name search
-		if (data.length === 1 && data.charCodeAt(0) >= 32) {
-			this.nameQuery += data;
+		const nameChar = printableChar(data);
+		if (nameChar !== undefined) {
+			this.nameQuery += nameChar;
 			this.rebuildVisibleItems();
 			this.cursorIndex = Math.min(this.cursorIndex, Math.max(0, this.visibleItems.length - 1));
 			return;
@@ -624,7 +659,8 @@ class McpPanel {
 			this.done({ cancelled: true, changes: new Map() });
 			return;
 		}
-		if (matchesKey(data, "escape") || data === "n" || data === "N") {
+		const discardChar = printableChar(data)?.toLowerCase();
+		if (matchesKey(data, "escape") || discardChar === "n") {
 			this.confirmingDiscard = false;
 			return;
 		}
@@ -637,7 +673,7 @@ class McpPanel {
 			}
 			return;
 		}
-		if (data === "y" || data === "Y") {
+		if (discardChar === "y") {
 			this.cleanup();
 			this.done({ cancelled: true, changes: new Map() });
 			return;

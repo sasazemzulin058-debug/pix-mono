@@ -1,6 +1,6 @@
 {
 	"name": "@xynogen/pix-optimizer",
-	"version": "1.1.18",
+	"version": "1.1.19",
 	"description": "Performance optimization suite for Pi Coding Agent - caveman mode + RTK tool rewriting + jq/TOON JSON compression + ponytail lazy-dev mode",
 	"type": "module",
 	"main": "src/index.ts",
@@ -9,6 +9,7 @@
 	},
 	"files": [
 		"src",
+		"!src/**/*.test.ts",
 		"README.md",
 		"LICENSE"
 	],
