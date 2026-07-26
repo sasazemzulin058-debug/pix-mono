@@ -11,8 +11,8 @@
  *   sudo      — hard block, must use sudo_run tool instead (no bypass)
  *   No-UI fallback: critical/dangerous auto-block (can't show dialog)
  *
- * Config: ~/.pi/agent/pix-gate.json
- *   disableDefaults: true          — replace built-in rules entirely
+ * Config: ~/.pi/agent/pix.json (the `gate` section)
+ *   guardrails: "off"              — disable built-in rules entirely
  *   extraRules: [{ pattern, flags?, severity?, reason? }]  — append extra rules
  *   autoApprove: ["regex"]         — bypass gate for matching commands
  */

@@ -1,4 +1,4 @@
-import { boolOr, defineSection, isObj, strArr } from "../schema.ts";
+import { defineSection, enumOr, isObj, strArr } from "../schema.ts";
 
 export type GateSeverity = "risky" | "dangerous" | "critical";
 
@@ -10,7 +10,8 @@ export interface GateRuleConfig {
 }
 
 export interface GateConfig {
-	disableDefaults: boolean;
+	/** Whether Pix's built-in command protections are active. */
+	guardrails: "on" | "off";
 	autoApprove: string[];
 	extraRules: GateRuleConfig[];
 }
@@ -18,7 +19,7 @@ export interface GateConfig {
 const SEVERITIES: readonly GateSeverity[] = ["risky", "dangerous", "critical"];
 
 const DEFAULTS: Readonly<GateConfig> = {
-	disableDefaults: false,
+	guardrails: "on",
 	autoApprove: [],
 	extraRules: [],
 };
@@ -37,7 +38,7 @@ export const gateSection = defineSection<"gate", GateConfig>({
 	key: "gate",
 	defaults: DEFAULTS,
 	parse(raw, ctx) {
-		if (!isObj(raw)) return { disableDefaults: false, autoApprove: [], extraRules: [] };
+		if (!isObj(raw)) return { guardrails: "on", autoApprove: [], extraRules: [] };
 		const extraRules: GateRuleConfig[] = [];
 		if (Array.isArray(raw.extraRules)) {
 			raw.extraRules.forEach((r, i) => {
@@ -63,7 +64,7 @@ export const gateSection = defineSection<"gate", GateConfig>({
 			});
 		}
 		return {
-			disableDefaults: boolOr(raw.disableDefaults, DEFAULTS.disableDefaults),
+			guardrails: enumOr(raw.guardrails, ["on", "off"], DEFAULTS.guardrails),
 			autoApprove: strArr(raw.autoApprove),
 			extraRules,
 		};

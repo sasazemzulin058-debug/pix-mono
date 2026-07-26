@@ -31,7 +31,15 @@ describe("schema and normalization", () => {
 		const { runtime } = fresh();
 		expect(runtime.get(prettySection).icons).toBe("nerd");
 		expect(runtime.get(collapseSection).enabled).toBe(true);
+		expect(runtime.get(gateSection).guardrails).toBe("on");
 		expect(runtime.get(optimizerSection).rtk).toBe("on");
+	});
+
+	it("ignores the removed gate.disableDefaults field", async () => {
+		const { runtime, agentDir } = fresh();
+		writeFileSync(join(agentDir, "pix.json"), JSON.stringify({ gate: { disableDefaults: true } }));
+		await runtime.reload();
+		expect(runtime.get(gateSection).guardrails).toBe("on");
 	});
 
 	it("falls back invalid fields individually and diagnoses bad gate regex", () => {
@@ -80,6 +88,12 @@ describe("persistence", () => {
 		expect(doc.future).toEqual({ x: 1 });
 		expect(doc.pretty).toEqual({ icons: "ascii" });
 		expect(doc.collapse).toBeUndefined(); // all defaults → omitted
+	});
+
+	it("writes guardrails using its positive on/off representation", async () => {
+		const { runtime, agentDir } = fresh();
+		await runtime.update(gateSection, { guardrails: "off" });
+		expect(readConfig(agentDir).gate).toEqual({ guardrails: "off" });
 	});
 
 	it("leaves no temp file after a successful write", async () => {

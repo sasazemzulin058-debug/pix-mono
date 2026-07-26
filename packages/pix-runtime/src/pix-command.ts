@@ -12,7 +12,6 @@ import type { PixRuntime } from "./runtime.ts";
 import type { DeepPartial, SectionHandle } from "./schema.ts";
 import { collapseSection } from "./sections/collapse.ts";
 import { gateSection } from "./sections/gate.ts";
-import { optimizerSection } from "./sections/optimizer.ts";
 import { prettySection } from "./sections/pretty.ts";
 
 interface SettingRow<T> {
@@ -63,28 +62,12 @@ const SETTINGS: SettingRow<unknown>[] = [
 		patch: (value) => ({ delaySec: Number(value) }),
 	}),
 	row({
-		section: "Optimizer",
-		label: "caveman",
-		handle: optimizerSection,
-		values: ["off", "lite", "full", "ultra", "micro"],
-		read: (v) => v.caveman,
-		patch: (value) => ({ caveman: value as "off" | "lite" | "full" | "ultra" | "micro" }),
-	}),
-	row({
-		section: "Optimizer",
-		label: "rtk",
-		handle: optimizerSection,
-		values: ["on", "off"],
-		read: (v) => v.rtk,
-		patch: (value) => ({ rtk: value as "on" | "off" }),
-	}),
-	row({
 		section: "Gate",
-		label: "disable defaults",
+		label: "Guardrails",
 		handle: gateSection,
-		values: ["false", "true"],
-		read: (v) => String(v.disableDefaults),
-		patch: (value) => ({ disableDefaults: value === "true" }),
+		values: ["on", "off"],
+		read: (v) => v.guardrails,
+		patch: (guardrails) => ({ guardrails: guardrails as "on" | "off" }),
 	}),
 ];
 
@@ -124,6 +107,7 @@ export function registerPixCommand(pi: ExtensionAPI, runtime: PixRuntime): void 
 					tui: { requestRender(): void },
 					theme: {
 						fg(c: string, t: string): string;
+						bg(c: string, t: string): string;
 						bold(t: string): string;
 					},
 					_kb: unknown,
@@ -165,7 +149,12 @@ export function registerPixCommand(pi: ExtensionAPI, runtime: PixRuntime): void 
 							}
 							lines.push("");
 							lines.push(theme.fg("dim", "←→ change · ↑↓ move · esc close"));
-							return lines;
+							return frameLines({
+								width: boxW,
+								lines,
+								color: (s: string) => theme.fg("accent", s),
+								bg: (s: string) => theme.bg("customMessageBg", s),
+							});
 						},
 						invalidate: () => {},
 						handleInput: (data: string) => {
@@ -194,4 +183,48 @@ export function registerPixCommand(pi: ExtensionAPI, runtime: PixRuntime): void 
 			);
 		},
 	});
+}
+
+// ── Inline frameLines (runtime must not depend on pix-pretty — pretty depends on us) ─
+
+interface FrameOptions {
+	width: number;
+	lines: string[];
+	color: (s: string) => string;
+	bg?: (s: string) => string;
+}
+
+function visibleWidth(s: string): number {
+	// Strip ANSI escape sequences for width calculation.
+	return s.replace(/\x1b\[[0-9;]*m/g, "").length;
+}
+
+/** Render a rounded bordered modal box (╭─╮╰─╯) with solid background fill. */
+function frameLines(opts: FrameOptions): string[] {
+	const { width, lines, color } = opts;
+	const bg = opts.bg ?? ((s: string) => s);
+	const inner = Math.max(1, width - 4); // 2 border + 2 padding
+	const dashes = "─".repeat(width - 2);
+
+	// Re-assert the bg OPEN sequence after any full reset (\x1b[0m) or bg reset
+	// (\x1b[49m) embedded in themed content, so the fill has no transparent holes.
+	const SENTINEL = "\x00";
+	const bgOpen = bg(SENTINEL).split(SENTINEL)[0] ?? "";
+	const reassert = (s: string): string =>
+		bgOpen
+			? s.replace(/\x1b\[([0-9;]*)m/g, (seq, p: string) =>
+					p === "0" || p.split(";").includes("49") ? `${seq}${bgOpen}` : seq,
+				)
+			: s;
+
+	const row = (content: string): string => {
+		const pad = inner - visibleWidth(content);
+		const padded = pad > 0 ? content + " ".repeat(pad) : content.slice(0, inner);
+		return bg(`${color("│")} ${reassert(padded)} ${color("│")}`);
+	};
+
+	const out: string[] = [bg(color(`╭${dashes}╮`))];
+	for (const line of lines) out.push(row(line));
+	out.push(bg(color(`╰${dashes}╯`)));
+	return out;
 }

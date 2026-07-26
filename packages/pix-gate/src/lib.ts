@@ -20,7 +20,8 @@ export interface UserConfig {
 		severity?: Severity;
 		reason?: string;
 	}[];
-	disableDefaults?: boolean;
+	/** Whether Pix's built-in command protections are active. Defaults to "on". */
+	guardrails?: "on" | "off";
 	/** Regex strings — commands matching any are passed through without prompting. */
 	autoApprove?: string[];
 }
@@ -133,7 +134,7 @@ export function loadUserConfig(): UserConfig {
 	// Read from ~/.pi/agent/pix.json gate section
 	const pix = config(gateSection);
 	return {
-		disableDefaults: pix.disableDefaults || undefined,
+		guardrails: pix.guardrails,
 		autoApprove: pix.autoApprove.length > 0 ? pix.autoApprove : undefined,
 		extraRules:
 			pix.extraRules.length > 0
@@ -152,7 +153,7 @@ export function buildRules(cfg: UserConfig): {
 	autoApprove: RegExp[];
 	pathRules: PathRule[];
 } {
-	const base = cfg.disableDefaults ? [] : DEFAULT_RULES.slice();
+	const base = cfg.guardrails === "off" ? [] : DEFAULT_RULES.slice();
 	const extra = (cfg.extraRules ?? []).map((r) => ({
 		pattern: new RegExp(r.pattern, r.flags ?? "i"),
 		severity: (r.severity ?? "dangerous") as Severity,
@@ -160,7 +161,7 @@ export function buildRules(cfg: UserConfig): {
 	}));
 	const autoApprove = (cfg.autoApprove ?? []).map((s) => new RegExp(s));
 	// ponytail: path rule config extension skipped for now — add extraPathRules/disablePathDefaults to UserConfig when needed
-	const pathRules = cfg.disableDefaults ? [] : DEFAULT_PATH_RULES.slice();
+	const pathRules = cfg.guardrails === "off" ? [] : DEFAULT_PATH_RULES.slice();
 	return { rules: [...base, ...extra], autoApprove, pathRules };
 }
 

@@ -41,6 +41,7 @@ interface Driver {
 	feed(data: string): void;
 	/** Wait for fire-and-forget runtime.update() calls to land. */
 	settle(): Promise<void>;
+	lines(): string[];
 	cursorLine(): string | undefined;
 	closed(): boolean;
 	iconsValue(): string;
@@ -106,6 +107,7 @@ async function openOverlay(): Promise<Driver> {
 		// The overlay's cycle() fires `void runtime.update(...)` without awaiting;
 		// yield to the event loop so the write lands before the test reads back.
 		settle: () => new Promise((resolve) => setTimeout(resolve, 0)),
+		lines: () => comp.render(),
 		cursorLine: () => comp.render().find((l) => l.includes("→")),
 		closed: () => closed,
 		// First row is Pretty/icons; read the live value through the runtime.
@@ -178,6 +180,18 @@ for (const enc of ENCODINGS) {
 		});
 	});
 }
+
+describe("/pix overlay frame", () => {
+	it("renders a rounded border around every settings row", async () => {
+		const d = await openOverlay();
+		const lines = d.lines();
+
+		expect(lines[0]).toMatch(/^╭─+╮$/);
+		expect(lines.at(-1)).toMatch(/^╰─+╯$/);
+		expect(lines.length).toBeGreaterThan(2);
+		for (const line of lines.slice(1, -1)) expect(line).toMatch(/^│ .* │$/);
+	});
+});
 
 describe("/pix overlay keys (guards)", () => {
 	it("shift+k (Kitty) must not move the cursor", async () => {

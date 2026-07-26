@@ -105,14 +105,14 @@ describe("classify", () => {
 // ── buildRules ────────────────────────────────────────────────────────────────
 
 describe("buildRules", () => {
-	test("disableDefaults removes all built-in rules", () => {
-		const { rules } = buildRules({ disableDefaults: true });
+	test("guardrails off removes all built-in rules", () => {
+		const { rules } = buildRules({ guardrails: "off" });
 		expect(rules).toHaveLength(0);
 	});
 
-	test("extraRules are appended", () => {
+	test("extraRules are appended when guardrails are off", () => {
 		const { rules } = buildRules({
-			disableDefaults: true,
+			guardrails: "off",
 			extraRules: [{ pattern: "foo", severity: "risky", reason: "test" }],
 		});
 		expect(rules).toHaveLength(1);
@@ -126,7 +126,7 @@ describe("buildRules", () => {
 		expect(rule0.test("yarn publish")).toBe(false);
 	});
 
-	test("defaults included when disableDefaults absent", () => {
+	test("defaults included when guardrails is absent", () => {
 		const { rules } = buildRules({});
 		expect(rules.length).toBe(DEFAULT_RULES.length);
 	});
