@@ -643,12 +643,11 @@ export async function runAgent(
 		return !noExtensions;
 	});
 
-	const sessionOpts: Parameters<typeof createAgentSession>[0] = {
+	const sessionOpts: NonNullable<Parameters<typeof createAgentSession>[0]> = {
 		cwd: effectiveCwd,
 		agentDir,
 		sessionManager: SessionManager.inMemory(effectiveCwd),
 		settingsManager: SettingsManager.create(configCwd, agentDir),
-		modelRegistry: ctx.modelRegistry,
 		model,
 		tools: allowedTools,
 		resourceLoader: loader,

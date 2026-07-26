@@ -127,7 +127,6 @@ export async function runBtw(options: BtwRunOptions): Promise<BtwRunResult> {
 		agentDir,
 		sessionManager: SessionManager.inMemory(snapshot.cwd),
 		settingsManager,
-		modelRegistry: ctx.modelRegistry,
 		model: snapshot.model,
 		thinkingLevel: snapshot.thinkingLevel,
 		tools,
