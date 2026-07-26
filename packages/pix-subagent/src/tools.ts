@@ -28,7 +28,12 @@ import { icon } from "@xynogen/pix-pretty/icon-catalog";
 import { formatCollapsedToolRow, hideCollapsedToolCall } from "@xynogen/pix-pretty/utils";
 import { Type } from "typebox";
 import type { AgentManager } from "./agent-manager.ts";
-import { getAgentConversation, normalizeMaxTurns, SUBAGENT_TOOL_NAMES } from "./agent-runner.ts";
+import {
+	getAgentConversation,
+	getAgentLastTurns,
+	normalizeMaxTurns,
+	SUBAGENT_TOOL_NAMES,
+} from "./agent-runner.ts";
 import { BUILTIN_TOOL_NAMES, getAgentConfig, getAvailableTypes, getConfig } from "./agent-types.ts";
 import { resolveAgentInvocationConfig } from "./invocation-config.ts";
 import {
@@ -284,7 +289,9 @@ function renderAgentUtilityResult(
 				? "still running"
 				: details.status === "not-found"
 					? "not found"
-					: details.status;
+					: details.turns != null
+						? `last ${details.turns} turn${details.turns === 1 ? "" : "s"}`
+						: details.status;
 		const status =
 			details.status === "completed" || details.status === "steered"
 				? "success"
@@ -976,7 +983,7 @@ export function createAgentResultTool(
 		label: "Agent Result",
 		renderShell: "self",
 		description:
-			"Retrieve a previous agent result by ID. Results are delivered automatically; do not use this to wait or poll. verbose=true returns full conversation history.",
+			"Retrieve a previous agent result by ID. Results are delivered automatically; do not use this to wait or poll. verbose=true returns full conversation history. turns=N returns only the last N turns — also works for agents stopped or aborted mid-task.",
 		parameters: Type.Object({
 			agent_id: Type.String({
 				description: "The agent ID returned by the agent tool.",
@@ -985,6 +992,13 @@ export function createAgentResultTool(
 				Type.Boolean({
 					description:
 						"true = full conversation history; false (default) = latest assistant text only.",
+				}),
+			),
+			turns: Type.Optional(
+				Type.Number({
+					description:
+						"Return only the last N turns (assistant + tool activity). Takes precedence over verbose. Useful for recovering partial work from a terminated agent.",
+					minimum: 1,
 				}),
 			),
 		}),
@@ -1026,6 +1040,22 @@ export function createAgentResultTool(
 
 			// Suppress the pending completion nudge (agent_result consumed it)
 			record.resultConsumed = true;
+
+			const turns =
+				typeof params.turns === "number" && Number.isFinite(params.turns) && params.turns >= 1
+					? Math.floor(params.turns)
+					: undefined;
+			if (turns != null && record.session) {
+				const text = getAgentLastTurns(record.session, turns) || "No conversation history yet.";
+				return textResult(text, {
+					_type: "agent-result",
+					agentId: id,
+					status: record.status,
+					verbose: false,
+					turns,
+					hasOutput: text !== "No conversation history yet.",
+				});
+			}
 
 			if (params.verbose && record.session) {
 				const convo = getAgentConversation(record.session);

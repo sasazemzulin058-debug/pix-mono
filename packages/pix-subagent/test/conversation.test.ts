@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { AgentSession } from "@earendil-works/pi-coding-agent";
-import { getAgentConversation } from "../src/agent-runner.ts";
+import { getAgentConversation, getAgentLastTurns } from "../src/agent-runner.ts";
 
 /** Minimal fake session — getAgentConversation only reads `.messages`. */
 function fakeSession(messages: { role: string; content: unknown; toolName?: string }[]) {
@@ -62,6 +62,54 @@ describe("getAgentConversation", () => {
 	test("empty messages returns empty string", () => {
 		const session = fakeSession([]);
 		const result = getAgentConversation(session, 10_000);
+		expect(result).toBe("");
+	});
+});
+
+describe("getAgentLastTurns", () => {
+	const messages = [
+		{ role: "user", content: "initial prompt" },
+		{ role: "assistant", content: [{ type: "text", text: "turn 1 text" }] },
+		{
+			role: "toolResult",
+			content: [{ type: "text", text: "t1 result" }],
+			toolName: "read",
+		},
+		{ role: "assistant", content: [{ type: "text", text: "turn 2 text" }] },
+		{
+			role: "toolResult",
+			content: [{ type: "text", text: "t2 result" }],
+			toolName: "bash",
+		},
+		{ role: "assistant", content: [{ type: "text", text: "turn 3 text" }] },
+	];
+
+	test("last 1 turn — only the final assistant group", () => {
+		const result = getAgentLastTurns(fakeSession(messages), 1, 10_000);
+		expect(result).toContain("turn 3 text");
+		expect(result).not.toContain("turn 1 text");
+		expect(result).not.toContain("turn 2 text");
+		expect(result).not.toContain("initial prompt");
+	});
+
+	test("last 2 turns — includes tool results between turns", () => {
+		const result = getAgentLastTurns(fakeSession(messages), 2, 10_000);
+		expect(result).toContain("turn 2 text");
+		expect(result).toContain("turn 3 text");
+		expect(result).toContain("[Tool Result (bash)]");
+		expect(result).not.toContain("turn 1 text");
+	});
+
+	test("turns larger than history — returns everything from first turn on", () => {
+		const result = getAgentLastTurns(fakeSession(messages), 99, 10_000);
+		expect(result).toContain("turn 1 text");
+		expect(result).toContain("turn 3 text");
+		// leading user-only group never counts as a turn, so it stays out
+		expect(result).not.toContain("initial prompt");
+	});
+
+	test("no assistant messages yet — empty string", () => {
+		const result = getAgentLastTurns(fakeSession([{ role: "user", content: "hi" }]), 3, 10_000);
 		expect(result).toBe("");
 	});
 });

@@ -792,10 +792,11 @@ export async function steerAgent(session: AgentSession, message: string): Promis
  * RECENT parts are kept, oldest are dropped, and a marker line indicates how
  * many entries were omitted (same pattern as `buildParentContext`).
  */
-export function getAgentConversation(session: AgentSession, maxChars = 30_000): string {
+/** Render messages into labelled transcript parts ("[User]: …", "[Assistant]: …", …). */
+function formatMessageParts(messages: AgentSession["messages"]): string[] {
 	const parts: string[] = [];
 
-	for (const msg of session.messages) {
+	for (const msg of messages) {
 		if (msg.role === "user") {
 			const text = typeof msg.content === "string" ? msg.content : extractText(msg.content);
 			if (text.trim()) parts.push(`[User]: ${text.trim()}`);
@@ -816,9 +817,13 @@ export function getAgentConversation(session: AgentSession, maxChars = 30_000): 
 		}
 	}
 
+	return parts;
+}
+
+/** Tail-anchored char budget: keep the most recent parts, drop the oldest. */
+function applyTailBudget(parts: string[], maxChars: number): string {
 	if (parts.length === 0) return "";
 
-	// Tail-anchored budget: walk from the end, keeping the most recent parts.
 	let budget = maxChars;
 	let firstKept = parts.length;
 	for (let i = parts.length - 1; i >= 0; i--) {
@@ -838,4 +843,33 @@ export function getAgentConversation(session: AgentSession, maxChars = 30_000): 
 			: "";
 
 	return marker + kept.join("\n\n");
+}
+
+export function getAgentConversation(session: AgentSession, maxChars = 30_000): string {
+	return applyTailBudget(formatMessageParts(session.messages), maxChars);
+}
+
+/**
+ * Transcript of the last N turns of a session — one "turn" = an assistant
+ * message plus its tool calls/results (mirrors the `turn_end` counting in
+ * attachTurnLimit). A leading user-only group (the initial prompt) does not
+ * count as a turn. Works on terminated sessions too: session.messages is
+ * retained on the record until cleanup, so stopped/aborted/errored agents
+ * still have their partial history.
+ */
+export function getAgentLastTurns(session: AgentSession, turns: number, maxChars = 30_000): string {
+	const groups: AgentSession["messages"][] = [];
+	let current: AgentSession["messages"] = [];
+	for (const msg of session.messages) {
+		if (msg.role === "assistant" && current.length > 0) {
+			groups.push(current);
+			current = [];
+		}
+		current.push(msg);
+	}
+	if (current.length > 0) groups.push(current);
+
+	const turnGroups = groups.filter((g) => g.some((m) => m.role === "assistant"));
+	const kept = turnGroups.slice(-Math.max(1, Math.floor(turns)));
+	return applyTailBudget(formatMessageParts(kept.flat()), maxChars);
 }

@@ -116,6 +116,8 @@ export interface AgentResultDetails {
 	agentId: string;
 	status: AgentRecord["status"] | "not-found";
 	verbose: boolean;
+	/** Set when the caller requested the last N turns instead of the full/default output. */
+	turns?: number;
 	hasOutput: boolean;
 }
 
