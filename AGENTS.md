@@ -3,7 +3,7 @@
 # pix-mono — Agent Operating Guide
 
 Monorepo of Pi Coding Agent extensions (`@xynogen/pix-*`).
-**Bun** runtime · **Biome** lint/format · **tsc** types · **bun test** tests · all ESM (`"type": "module"`, ES2022).
+**Bun** runtime · **Biome** lint/format · **tsc** types · **bun run test** tests · all ESM (`"type": "module"`, ES2022).
 
 ---
 
@@ -115,7 +115,7 @@ bun run dev:unlink         # restore npm copies
 bun run check              # biome lint + format
 bun run check:fix          # auto-fix
 bun run typecheck          # tsc --noEmit
-bun test                   # unit tests
+bun run test               # unit tests
 ```
 
 ---
@@ -130,7 +130,7 @@ Types: **feat** (new capability) · **fix** (bug fix) · **refactor** (no behavi
 
 ## CI / CD
 
-**CI** runs on every push to `main` and PRs: biome ci → tsc → bun test.
+**CI** runs on every push to `main` and PRs: biome ci → tsc → bun run test.
 
 **CD** is triggered by a release tag push (`release-YYYYMMDD-HHMM`), never by a direct branch push.
 
@@ -147,7 +147,7 @@ Because the tag is the trigger (not CI-completion), there is **no tag-push race*
 
 "publish" (alone) means: run this exact sequence, no re-asking which packages.
 
-1. **Gate** — `bun run check && bun run typecheck && bun test`. Red → STOP.
+1. **Gate** — `bun run check && bun run typecheck && bun run test`. Red → STOP.
 2. **Confirm bumps** — changed packages must have version ahead of npm. Unbumped → that package silently ships nothing (no error). Semver: `feat`→minor, `fix`/`perf`→patch, breaking→major.
 3. **Commit + push** — confirm via `ask_user` first (shared-state push).
 4. **Dry-run** — `bun run publish:dry` — note the exact `name@version` list.
