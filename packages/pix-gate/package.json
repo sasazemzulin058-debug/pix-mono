@@ -43,7 +43,8 @@
 	},
 	"dependencies": {
 		"@xynogen/pix-pretty": "^1.7.9",
-		"@xynogen/pix-data": "^0.4.0"
+		"@xynogen/pix-data": "^0.4.0",
+		"@xynogen/pix-runtime": "^0.2.0"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-coding-agent": "*",
