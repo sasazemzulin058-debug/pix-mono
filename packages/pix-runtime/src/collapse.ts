@@ -18,3 +18,34 @@ export function shouldCollapse(toolName: string): boolean {
 export function collapseDelayMs(): number {
 	return pixRuntime().get(collapseSection).delaySec * 1000;
 }
+
+/** Per-card render state bag for the collapse timer. */
+export interface CollapseState {
+	collapsed?: boolean;
+	timer?: ReturnType<typeof setTimeout>;
+}
+
+/**
+ * Run the collapse timer for a tool card. Call this inside `renderResult`.
+ *
+ * @param toolName — the tool name (e.g. "bash", "read") for per-tool config
+ * @param state    — the render context's `state` bag (mutable, per-card)
+ * @param invalidate — `context.invalidate()` to trigger re-render
+ * @param expanded — whether the host currently requests the detailed view
+ * @returns `true` if the card is currently collapsed and not expanded
+ */
+export function tickCollapse(
+	toolName: string,
+	state: CollapseState,
+	invalidate: () => void,
+	expanded = false,
+): boolean {
+	if (!shouldCollapse(toolName)) return false;
+	if (!state.timer && !state.collapsed) {
+		state.timer = setTimeout(() => {
+			state.collapsed = true;
+			invalidate();
+		}, collapseDelayMs());
+	}
+	return state.collapsed === true && !expanded;
+}

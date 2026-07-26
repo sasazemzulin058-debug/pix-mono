@@ -6,7 +6,8 @@
 // Engine note: pi-diff used Shiki's codeToANSI. pretty uses cli-highlight,
 // shared with other pix-pretty renderers, and paints foreground tokens only.
 
-import { pixConfig } from "@xynogen/pix-data/pix-config";
+import { config } from "@xynogen/pix-runtime/config";
+import { prettySection } from "@xynogen/pix-runtime/sections";
 import * as Diff from "diff";
 import { BG_BASE, BOLD, FG_DIM, FG_GREEN, FG_LNUM, FG_RED, FG_RULE, RST } from "./ansi.js";
 import { MAX_HL_CHARS, MAX_RENDER_LINES, WORD_DIFF_MIN_SIM } from "./config.js";
@@ -30,7 +31,7 @@ function envInt(name: string, fallback: number): number {
 // ---------------------------------------------------------------------------
 
 const DIM = "\x1b[2m";
-const dc = pixConfig().pretty.diff;
+const dc = config(prettySection).diff;
 
 // Diff add/remove share the canonical green/red from ansi.ts (single source).
 const FG_ADD = FG_GREEN;

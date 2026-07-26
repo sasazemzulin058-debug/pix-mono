@@ -16,12 +16,12 @@ import type {
 	ToolRenderResultOptions,
 } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
-import { type CollapseState, tickCollapse } from "@xynogen/pix-data/collapse";
 import {
 	type CollapsedToolStatus,
 	formatCollapsedToolRow,
 	hideCollapsedToolCall,
 } from "@xynogen/pix-pretty/utils";
+import { type CollapseState, tickCollapse } from "@xynogen/pix-runtime/collapse";
 
 interface TextLike extends Component {
 	setText(text: string): void;

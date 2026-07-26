@@ -3,7 +3,6 @@ import type {
 	GrepToolInput,
 	ToolRenderResultOptions,
 } from "@earendil-works/pi-coding-agent";
-import { type CollapseState, tickCollapse } from "@xynogen/pix-data/collapse";
 import { resolveBaseBackground } from "@xynogen/pix-pretty/ansi";
 import type { ToolContext } from "@xynogen/pix-pretty/context";
 import { fffFormatGrepText } from "@xynogen/pix-pretty/fff";
@@ -31,6 +30,7 @@ import {
 	renderToolError,
 	setResultDetails,
 } from "@xynogen/pix-pretty/utils";
+import { type CollapseState, tickCollapse } from "@xynogen/pix-runtime/collapse";
 
 export const DEFAULT_GREP_LIMIT = 30;
 

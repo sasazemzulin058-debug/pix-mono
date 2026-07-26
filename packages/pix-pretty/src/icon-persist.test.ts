@@ -2,26 +2,30 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { reloadPixConfig } from "@xynogen/pix-data/pix-config";
+import { reloadConfig } from "@xynogen/pix-runtime/config";
 import { getIconMode, setIconMode } from "./icon-catalog.ts";
 import { initIconMode, loadIconMode, saveIconMode } from "./icon-persist.ts";
 
 let tmpAgentDir: string;
 let origHome: string | undefined;
 
-beforeAll(() => {
+beforeAll(async () => {
 	tmpAgentDir = mkdtempSync(join(tmpdir(), "pretty-persist-test-"));
 	origHome = process.env.HOME;
-	// Point HOME at the temp dir so pixConfig() reads from there, not the real ~/.pi/agent/pix.json
+	// Point HOME at the temp dir so the runtime reads from there, not the real ~/.pi/agent/pix.json
 	process.env.HOME = tmpAgentDir;
 	process.env.PI_CODING_AGENT_DIR = tmpAgentDir;
-	// Force pix-config to re-read from the temp HOME (clears cached real config).
-	reloadPixConfig();
+	// Drop any singleton created by earlier test files (it is bound to the old
+	// agent dir); the next accessor call lazily recreates it under the temp HOME.
+	delete (globalThis as Record<symbol, unknown>)[Symbol.for("@xynogen/pix-runtime")];
+	await reloadConfig();
 });
 
 afterAll(() => {
 	process.env.HOME = origHome;
 	delete process.env.PI_CODING_AGENT_DIR;
+	// Drop the temp-HOME-bound singleton so later test files get a fresh one.
+	delete (globalThis as Record<symbol, unknown>)[Symbol.for("@xynogen/pix-runtime")];
 	try {
 		rmSync(tmpAgentDir, { recursive: true });
 	} catch {
@@ -36,18 +40,18 @@ describe("icon-persist", () => {
 		expect(loadIconMode()).toBe("nerd");
 	});
 
-	it("round-trips a mode across save/load (new-session sim)", () => {
-		saveIconMode("unicode");
+	it("round-trips a mode across save/load (new-session sim)", async () => {
+		await saveIconMode("unicode");
 		expect(loadIconMode()).toBe("unicode");
 	});
 
-	it("rejects an invalid persisted mode", () => {
-		saveIconMode("ascii");
+	it("rejects an invalid persisted mode", async () => {
+		await saveIconMode("ascii");
 		expect(loadIconMode()).toBe("ascii");
 	});
 
-	it("initIconMode applies the persisted choice to the catalog", () => {
-		saveIconMode("ascii");
+	it("initIconMode applies the persisted choice to the catalog", async () => {
+		await saveIconMode("ascii");
 		setIconMode("nerd"); // pretend env default
 		initIconMode();
 		expect(getIconMode()).toBe("ascii");

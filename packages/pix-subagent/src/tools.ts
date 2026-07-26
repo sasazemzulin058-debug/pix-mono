@@ -23,9 +23,9 @@
 import { defineTool, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { lookupBenchmark } from "@xynogen/pix-data";
-import { type CollapseState, tickCollapse } from "@xynogen/pix-data/collapse";
 import { icon } from "@xynogen/pix-pretty/icon-catalog";
 import { formatCollapsedToolRow, hideCollapsedToolCall } from "@xynogen/pix-pretty/utils";
+import { type CollapseState, tickCollapse } from "@xynogen/pix-runtime/collapse";
 import { Type } from "typebox";
 import type { AgentManager } from "./agent-manager.ts";
 import {

@@ -30,6 +30,7 @@ import registerOptimizer from "@xynogen/pix-optimizer/src/index.ts";
 import registerPretty from "@xynogen/pix-pretty";
 import registerPrompts from "@xynogen/pix-prompts/src/extension.ts";
 import registerRead from "@xynogen/pix-read/src/extension.ts";
+import registerRuntime from "@xynogen/pix-runtime";
 import registerSkills from "@xynogen/pix-skills/src/index.ts";
 import registerSubagent from "@xynogen/pix-subagent/src/extension.ts";
 import registerTodo from "@xynogen/pix-todo/src/index.ts";
@@ -43,7 +44,10 @@ import registerWrite from "@xynogen/pix-write/src/extension.ts";
 type Factory = (pi: never) => void;
 
 const MEMBERS: Factory[] = [
-	// pix-data warms model caches and registers the /pix settings command.
+	// pix-runtime owns pix.json (init/reload/flush) and the /pix settings command.
+	// It must run first so every config consumer below reads a live runtime.
+	registerRuntime,
+	// pix-data warms model caches (modelgrep + BenchLM).
 	registerData,
 	// pix-pretty seeds the global icon mode (initIconMode) and registers
 	// FFF commands. It must run before icon() consumers (footer,

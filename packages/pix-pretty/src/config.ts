@@ -1,4 +1,5 @@
-import { pixConfig } from "@xynogen/pix-data/pix-config";
+import { config } from "@xynogen/pix-runtime/config";
+import { prettySection } from "@xynogen/pix-runtime/sections";
 
 export function envInt(name: string, fallback: number): number {
 	const v = Number.parseInt(process.env[name] ?? "", 10);
@@ -15,7 +16,7 @@ function pixOrEnvInt(envName: string, pixValue: number, fallback: number): numbe
 	return pixValue !== fallback ? pixValue : fallback;
 }
 
-const pc = pixConfig().pretty;
+const pc = config(prettySection);
 
 export const MAX_HL_CHARS = pixOrEnvInt("PRETTY_MAX_HL_CHARS", pc.maxHighlightChars, 80_000);
 

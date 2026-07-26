@@ -9,7 +9,8 @@
  * Precedence: env PRETTY_ICONS → pix.json pretty.icons → default ("nerd")
  */
 
-import { onPixConfigChange, pixConfig, savePixConfig } from "@xynogen/pix-data/pix-config";
+import { config, onConfigChange, updateConfig } from "@xynogen/pix-runtime/config";
+import { prettySection } from "@xynogen/pix-runtime/sections";
 import { ICON_MODES, type IconMode, setIconMode } from "./icon-catalog.js";
 
 function isIconMode(m: string): m is IconMode {
@@ -19,7 +20,7 @@ function isIconMode(m: string): m is IconMode {
 /** Read the persisted icon mode from pix.json, or undefined if unset/invalid. */
 export function loadIconMode(): IconMode | undefined {
 	try {
-		const mode = pixConfig().pretty.icons;
+		const mode = config(prettySection).icons;
 		if (mode == null) return undefined;
 		return isIconMode(mode) ? mode : undefined;
 	} catch {
@@ -28,12 +29,13 @@ export function loadIconMode(): IconMode | undefined {
 }
 
 /** Persist the icon mode to pix.json (`pretty.icons`). */
-export function saveIconMode(mode: IconMode): void {
-	try {
-		savePixConfig({ pretty: { icons: mode } });
-	} catch (err) {
-		console.warn("pix-pretty: persist icon mode failed:", err);
-	}
+export function saveIconMode(mode: IconMode): Promise<void> {
+	return updateConfig(prettySection, { icons: mode }).then(
+		() => undefined,
+		(err) => {
+			console.error("pix-pretty: persist icon mode failed:", err);
+		},
+	);
 }
 
 /**
@@ -43,12 +45,15 @@ export function saveIconMode(mode: IconMode): void {
  * Precedence: env PRETTY_ICONS → pix.json pretty.icons → default ("nerd")
  */
 export function initIconMode(): void {
-	const pixIcons = pixConfig().pretty.icons;
+	const pixIcons = config(prettySection).icons;
 	if (pixIcons && isIconMode(pixIcons)) setIconMode(pixIcons);
 
 	// Keep the in-memory icon mode in sync when /pix changes pretty.icons.
-	onPixConfigChange((cfg) => {
-		const mode = cfg.pretty.icons;
-		if (mode && isIconMode(mode)) setIconMode(mode);
-	});
+	onConfigChange(
+		(change) => {
+			const mode = change.current.get(prettySection).icons;
+			if (mode && isIconMode(mode)) setIconMode(mode);
+		},
+		{ paths: ["pretty.icons"] },
+	);
 }

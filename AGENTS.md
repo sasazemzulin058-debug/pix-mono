@@ -67,7 +67,8 @@ packages/
   # ── Aggregator ─────────────────────────────────────────────────────
   pix-core/        # Meta-package — bundles + activates the core distro
   # ── Shared layers ──────────────────────────────────────────────────
-  pix-data/        # Model data (modelgrep + BenchLM, cached at ~/.cache/pi), pix.json config loader, collapse helper
+  pix-data/        # Model data (modelgrep + BenchLM, cached at ~/.cache/pi)
+  pix-runtime/     # pix.json config runtime (sections, atomic writes, /pix command), once() guard, collapse policy
   pix-pretty/      # Rendering lib (highlight, diff, icons, fff) + FFF slash commands
   pix-themes/      # Theme pack — 7 dark themes
   # ── UI / UX (bundled by pix-core) ─────────────────────────────────
@@ -160,7 +161,7 @@ Because the tag is the trigger (not CI-completion), there is **no tag-push race*
 
 ## Package Independence
 
-- **Three sanctioned shared layers:** `pix-data` (data + config), `pix-pretty` (rendering), `pix-core` (aggregator). Beyond these, keep packages self-contained.
+- **Four sanctioned shared layers:** `pix-runtime` (config + once + collapse), `pix-data` (model data), `pix-pretty` (rendering), `pix-core` (aggregator). Beyond these, keep packages self-contained.
 - Prefer duplicating small utilities over adding a cross-package dep.
 - Each package owns its own version — bump only what changed.
 - Pi host is always a `peerDependency`, never a direct dep.
@@ -196,16 +197,16 @@ icon("cwd")           // resolves glyph for active mode (nerd/unicode/ascii)
 
 ## Unified Config — `~/.pi/agent/pix.json`
 
-Auto-created with defaults on first session. Sections:
+Owned by `pix-runtime` (init/reload/flush + the `/pix` settings command). Auto-created with defaults on first session. Sections:
 
 | Section | Consumers |
 |---|---|
-| `collapse` | pix-bash, pix-read, pix-grep, pix-edit, pix-write, pix-find, pix-ls, pix-todo |
-| `pretty` | pix-pretty (theme, icons, preview, diff colors) |
+| `collapse` | pix-bash, pix-read, pix-grep, pix-edit, pix-write, pix-find, pix-ls, pix-todo, pix-sudo, pix-skills, pix-subagent, pix-9router |
+| `pretty` | pix-pretty (icons, preview/render limits, diff split thresholds) |
 | `optimizer` | pix-optimizer (caveman/rtk/toon/ponytail state) |
 | `gate` | pix-gate (rules, auto-approve patterns) |
 
-Loader: `@xynogen/pix-data/pix-config` · Collapse: `@xynogen/pix-data/collapse`. Full schema in `packages/pix-data/README.md`.
+Loader: `@xynogen/pix-runtime/config` (sections in `@xynogen/pix-runtime/sections`) · Collapse: `@xynogen/pix-runtime/collapse`. Full schema in `packages/pix-runtime/README.md`.
 
 ---
 

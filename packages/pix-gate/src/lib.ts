@@ -2,7 +2,8 @@
  * Pure helpers for pix-gate — no Pi API deps, fully unit-testable.
  */
 
-import { type GateRuleConfig, pixConfig } from "@xynogen/pix-data/pix-config";
+import { config } from "@xynogen/pix-runtime/config";
+import { type GateRuleConfig, gateSection } from "@xynogen/pix-runtime/sections";
 
 export type Severity = "critical" | "dangerous" | "risky";
 
@@ -130,7 +131,7 @@ export const DEFAULT_RULES: Rule[] = [
 
 export function loadUserConfig(): UserConfig {
 	// Read from ~/.pi/agent/pix.json gate section
-	const pix = pixConfig().gate;
+	const pix = config(gateSection);
 	return {
 		disableDefaults: pix.disableDefaults || undefined,
 		autoApprove: pix.autoApprove.length > 0 ? pix.autoApprove : undefined,

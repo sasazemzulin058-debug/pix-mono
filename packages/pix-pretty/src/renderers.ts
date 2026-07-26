@@ -1,5 +1,6 @@
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { getLsStyle } from "@xynogen/pix-data/pix-config";
+import { config } from "@xynogen/pix-runtime/config";
+import { prettySection } from "@xynogen/pix-runtime/sections";
 
 import { FG_DIM, FG_RULE, RST } from "./ansi.js";
 import { MAX_PREVIEW_LINES } from "./config.js";
@@ -75,7 +76,7 @@ export function renderBashOutput(
 
 /** Render ls output using the configured style (grid or tree). */
 export function renderTree(text: string, basePath: string, theme?: FgTheme): string {
-	return getLsStyle() === "tree"
+	return config(prettySection).lsStyle === "tree"
 		? renderLsTree(text, basePath, theme)
 		: renderLsGrid(text, basePath, theme);
 }
