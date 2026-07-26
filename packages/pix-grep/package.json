@@ -1,6 +1,6 @@
 {
 	"name": "@xynogen/pix-grep",
-	"version": "0.1.17",
+	"version": "0.1.18",
 	"description": "Pi tool — pattern search in files",
 	"type": "module",
 	"main": "src/index.ts",
@@ -34,11 +34,17 @@
 		"access": "public"
 	},
 	"dependencies": {
-		"@xynogen/pix-data": "^0.3.4",
+		"@xynogen/pix-data": "^0.4.0",
 		"@xynogen/pix-pretty": "^1.7.22",
-		"@xynogen/pix-runtime": "^0.1.1"
+		"@xynogen/pix-runtime": "^0.2.0"
 	},
 	"peerDependencies": {
-		"@earendil-works/pi-coding-agent": "*"
+		"@earendil-works/pi-coding-agent": "*",
+		"@ff-labs/fff-node": "*"
+	},
+	"peerDependenciesMeta": {
+		"@ff-labs/fff-node": {
+			"optional": true
+		}
 	}
 }

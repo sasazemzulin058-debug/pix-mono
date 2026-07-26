@@ -1,6 +1,6 @@
 {
 	"name": "@xynogen/pix-mcp",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Token-efficient MCP gateway for the Pix Pi distro",
 	"type": "module",
 	"main": "src/index.ts",
@@ -56,6 +56,12 @@
 	"peerDependencies": {
 		"@earendil-works/pi-ai": "*",
 		"@earendil-works/pi-coding-agent": "*",
-		"@earendil-works/pi-tui": "*"
+		"@earendil-works/pi-tui": "*",
+		"glimpseui": "*"
+	},
+	"peerDependenciesMeta": {
+		"glimpseui": {
+			"optional": true
+		}
 	}
 }
