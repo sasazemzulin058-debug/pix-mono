@@ -1,4 +1,4 @@
-import type { FffState } from "../fff.js";
+import { fffEnsureFinder, type FffState } from "../fff.js";
 import type { CommandContextLike, PiPrettyApi } from "../types.js";
 
 // ── FFF slash commands ─────────────────────────────────────────────────
@@ -7,7 +7,8 @@ export function registerFffCommands(pi: PiPrettyApi, fffState: FffState): void {
 	pi.registerCommand("fff-health", {
 		description: "Show FFF file finder health and indexer status",
 		handler: async (_args: string, ctx: CommandContextLike) => {
-			if (!fffState.finder || fffState.finder.isDestroyed) {
+			if (!fffState.finder || fffState.finder.isDestroyed) { await fffEnsureFinder(ctx.cwd || process.cwd()); }
+	if (!fffState.finder || fffState.finder.isDestroyed) {
 				ctx.ui?.notify?.("FFF not initialized", "warning");
 				return;
 			}

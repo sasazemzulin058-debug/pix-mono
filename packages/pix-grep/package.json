@@ -1,50 +1,50 @@
 {
-	"name": "@xynogen/pix-grep",
-	"version": "0.1.19",
-	"description": "Pi tool — pattern search in files",
-	"type": "module",
-	"main": "src/index.ts",
-	"scripts": {
-		"test": "bun test"
-	},
-	"files": [
-		"src",
-		"README.md",
-		"LICENSE"
-	],
-	"pi": {
-		"extensions": [
-			"src/extension.ts"
-		]
-	},
-	"keywords": [
-		"pi",
-		"pi-package",
-		"pi-extension",
-		"grep"
-	],
-	"author": "xynogen",
-	"license": "MIT",
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/xynogen/pix-mono.git",
-		"directory": "packages/pix-grep"
-	},
-	"publishConfig": {
-		"access": "public"
-	},
-	"dependencies": {
-		"@xynogen/pix-data": "^0.4.0",
-		"@xynogen/pix-pretty": "^1.7.22",
-		"@xynogen/pix-runtime": "^0.3.0"
-	},
-	"peerDependencies": {
-		"@earendil-works/pi-coding-agent": "*",
-		"@ff-labs/fff-node": "*"
-	},
-	"peerDependenciesMeta": {
-		"@ff-labs/fff-node": {
-			"optional": true
-		}
-	}
+  "name": "@xynogen/pix-grep",
+  "version": "0.1.19",
+  "description": "Pi tool — pattern search in files",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "bun test"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/extension.ts"
+    ]
+  },
+  "keywords": [
+    "pi",
+    "pi-package",
+    "pi-extension",
+    "grep"
+  ],
+  "author": "xynogen",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xynogen/pix-mono.git",
+    "directory": "packages/pix-grep"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@xynogen/pix-data": "^0.4.0",
+    "@xynogen/pix-pretty": "^1.7.22",
+    "@xynogen/pix-runtime": "^0.3.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@ff-labs/fff-node": "*"
+  },
+  "peerDependenciesMeta": {
+    "@ff-labs/fff-node": {
+      "optional": true
+    }
+  }
 }
